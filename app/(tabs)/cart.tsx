@@ -3,12 +3,12 @@ import {
     View,
     Text,
     StyleSheet,
-    SafeAreaView,
     FlatList,
     TouchableOpacity,
     Image,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    StatusBar
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useCart } from '@/context/CartContext';
@@ -29,6 +29,7 @@ const CartScreen = () => {
     const router = useRouter();
     const [isBooking, setIsBooking] = useState(false);
 
+    // --- LOGIC BOOKING (TIDAK BERUBAH) ---
     const handleProceedToBooking = async () => {
         if (cart.length === 0) return;
         setIsBooking(true);
@@ -70,190 +71,255 @@ const CartScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
+
+            {/* --- HEADER UNGU --- */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-                    <FontAwesome name="arrow-left" size={24} color="white" />
+                {/* Tombol Back (Opsional jika ini Tab utama, bisa dihapus) */}
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <FontAwesome name="arrow-left" size={20} color="white" />
                 </TouchableOpacity>
 
-                <View>
+                <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>Shopping Cart</Text>
-                    <Text style={styles.headerSubtitle}>{totalItems} items</Text>
+                    <Text style={styles.headerSubtitle}>{totalItems} Items in Cart</Text>
                 </View>
-
-                <View style={styles.headerButton} />
             </View>
 
-            {/* LIST CART */}
-            <FlatList
-                data={cart}
-                keyExtractor={(item) => item.id.toString()} 
-                contentContainerStyle={{ padding: 20 }}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <FontAwesome name="shopping-basket" size={50} color="#ccc" />
-                        <Text style={styles.emptyText}>Keranjang Anda masih kosong.</Text>
-                    </View>
-                }
-                renderItem={({ item }) => (
-                    <View style={styles.cartItem}>
-                        {/* Item Image */}
-                        {item.image ? (
-                            <Image source={{ uri: item.image }} style={styles.itemImage} />
-                        ) : (
-                            <View style={[styles.itemImage, styles.imagePlaceholder]}>
-                                <FontAwesome name="camera" size={24} color="#ccc" />
-                            </View>
-                        )}
+            {/* --- CONTAINER PUTIH MELENGKUNG --- */}
+            <View style={styles.whiteSheet}>
+                <FlatList
+                    data={cart}
+                    keyExtractor={(item) => item.id.toString()}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <FontAwesome name="shopping-basket" size={60} color="#DDD" />
+                            <Text style={styles.emptyText}>Keranjang Anda masih kosong.</Text>
+                        </View>
+                    }
+                    renderItem={({ item }) => (
+                        <View style={styles.cartCard}>
+                            {/* Gambar Item */}
+                            {item.image ? (
+                                <Image source={{ uri: item.image }} style={styles.itemImage} />
+                            ) : (
+                                <View style={[styles.itemImage, styles.imagePlaceholder]}>
+                                    <FontAwesome name="camera" size={20} color="#ccc" />
+                                </View>
+                            )}
 
-                        {/* Item Details */}
-                        <View style={styles.itemDetailsContainer}>
-                            <View style={styles.itemInfo}>
-                                <Text style={styles.itemName} numberOfLines={2}>
-                                    {item.name}
-                                </Text>
-                            </View>
+                            {/* Info & Kontrol */}
+                            <View style={styles.cardInfo}>
+                                <View style={styles.cardHeaderRow}>
+                                    <Text style={styles.itemName} numberOfLines={1}>
+                                        {item.name}
+                                    </Text>
+                                    <TouchableOpacity onPress={() => removeFromCart(item.id)}>
+                                        <FontAwesome name="times-circle" size={22} color="#FF5252" />
+                                    </TouchableOpacity>
+                                </View>
 
-                            {/* Quantity Controls */}
-                            <View style={styles.quantityControl}>
-                                <TouchableOpacity
-                                    onPress={() => decreaseQuantity(item.id)}
-                                    style={styles.quantityButton}
-                                >
-                                    <FontAwesome name="minus" size={16} color="white" />
-                                </TouchableOpacity>
+                                <Text style={styles.itemCategory}>Lab Equipment</Text>
 
-                                <Text style={styles.quantityText}>{item.quantity}</Text>
+                                {/* Quantity Row */}
+                                <View style={styles.qtyContainer}>
+                                    <TouchableOpacity
+                                        onPress={() => decreaseQuantity(item.id)}
+                                        style={styles.qtyButton}
+                                    >
+                                        <FontAwesome name="minus" size={12} color="white" />
+                                    </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    onPress={() => increaseQuantity(item.id)}
-                                    style={styles.quantityButton}
-                                >
-                                    <FontAwesome name="plus" size={16} color="white" />
-                                </TouchableOpacity>
+                                    <Text style={styles.qtyText}>{item.quantity}</Text>
+
+                                    <TouchableOpacity
+                                        onPress={() => increaseQuantity(item.id)}
+                                        style={[styles.qtyButton, { backgroundColor: '#5B4DBC' }]} // Warna Ungu Utama
+                                    >
+                                        <FontAwesome name="plus" size={12} color="white" />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
+                    )}
+                />
 
-                        {/* Remove Button */}
+                {/* --- FOOTER CHECKOUT --- */}
+                {cart.length > 0 && (
+                    <View style={styles.footer}>
                         <TouchableOpacity
-                            onPress={() => removeFromCart(item.id)}
-                            style={styles.removeButton}
+                            style={[styles.checkoutButton, isBooking && styles.buttonDisabled]}
+                            onPress={handleProceedToBooking}
+                            disabled={isBooking}
                         >
-                            <FontAwesome name="times-circle" size={24} color="#E91E63" />
+                            {isBooking ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <Text style={styles.checkoutButtonText}>
+                                    Proceed to Booking ({totalItems})
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 )}
-            />
-
-            {/* FOOTER */}
-            {cart.length > 0 && (
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[styles.checkoutButton, isBooking && styles.buttonDisabled]}
-                        onPress={handleProceedToBooking}
-                        disabled={isBooking}
-                    >
-                        {isBooking ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text style={styles.checkoutButtonText}>
-                                Proceed to Booking ({totalItems} items)
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                </View>
-            )}
-        </SafeAreaView>
+            </View>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F4F6F8' },
-
-    header: {
-        backgroundColor: '#6A5AE0',
-        paddingVertical: 20,
-        paddingHorizontal: 20,
-        paddingTop: 50,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+    // Layout Utama
+    container: {
+        flex: 1,
+        backgroundColor: '#5B4DBC' // Background Ungu Utama
     },
 
-    headerButton: { width: 24, height: 24 },
+    // Header Styles
+    header: {
+        height: 140, // Tinggi header ungu
+        paddingHorizontal: 20,
+        paddingTop: 50, // Untuk status bar
+        justifyContent: 'flex-start',
+    },
+    backButton: {
+        marginBottom: 10,
+        width: 30,
+    },
+    headerContent: {
+        marginTop: 5,
+    },
+    headerTitle: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: 'white'
+    },
+    headerSubtitle: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 14,
+        marginTop: 5
+    },
 
-    headerTitle: { fontSize: 24, fontWeight: 'bold', color: 'white', textAlign: 'center' },
+    // Area Putih Melengkung
+    whiteSheet: {
+        flex: 1,
+        backgroundColor: '#F5F5F7', // Abu-abu sangat muda
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden',
+    },
 
-    headerSubtitle: { color: 'rgba(255,255,255,0.8)', textAlign: 'center' },
+    // Empty State
+    emptyContainer: {
+        alignItems: 'center',
+        marginTop: 80
+    },
+    emptyText: {
+        marginTop: 15,
+        fontSize: 16,
+        color: '#999'
+    },
 
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
-
-    emptyText: { marginTop: 15, fontSize: 16, color: '#888' },
-
-    cartItem: {
+    // Card Styles
+    cartCard: {
         flexDirection: 'row',
         backgroundColor: 'white',
-        padding: 15,
+        padding: 12,
         borderRadius: 16,
         marginBottom: 15,
         alignItems: 'center',
+        // Shadow effect
         elevation: 3,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4
     },
-
     itemImage: {
-        width: 80,
-        height: 80,
+        width: 70,
+        height: 70,
         borderRadius: 12,
         marginRight: 15,
-        backgroundColor: '#eee'
+        backgroundColor: '#F0F0F0'
     },
-
     imagePlaceholder: {
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f0f0f0'
+    },
+    cardInfo: {
+        flex: 1,
+        height: 70,
+        justifyContent: 'space-between',
+        paddingVertical: 2
+    },
+    cardHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start'
+    },
+    itemName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        maxWidth: '85%'
+    },
+    itemCategory: {
+        fontSize: 12,
+        color: '#888',
+        marginTop: -5
     },
 
-    itemDetailsContainer: { flex: 1, justifyContent: 'space-between', height: 80 },
-
-    itemInfo: {},
-
-    itemName: { fontSize: 15, fontWeight: 'bold', color: '#333' },
-
-    quantityControl: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center' },
-
-    quantityButton: {
-        backgroundColor: '#6A5AE0',
-        width: 32,
-        height: 32,
+    // Quantity Controls
+    qtyContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: 15 // Jarak antar elemen
+    },
+    qtyButton: {
+        backgroundColor: '#9FA8DA', // Ungu muda
+        width: 28,
+        height: 28,
         borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center'
     },
+    qtyText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        minWidth: 20,
+        textAlign: 'center'
+    },
 
-    quantityText: { fontSize: 18, fontWeight: 'bold', marginHorizontal: 55, color: '#333' },
-
-    removeButton: { position: 'absolute', top: 10, right: 10 },
-
-    footer: { padding: 20, borderTopWidth: 1, borderColor: '#eee', backgroundColor: 'white' },
-
+    // Footer
+    footer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        right: 20,
+        elevation: 10
+    },
     checkoutButton: {
-        backgroundColor: '#6A5AE0',
+        backgroundColor: '#5B4DBC', // Ungu Utama
         paddingVertical: 18,
         borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 56
+        elevation: 5,
+        shadowColor: '#5B4DBC',
+        shadowOpacity: 0.4,
+        shadowOffset: { width: 0, height: 4 }
     },
-
-    checkoutButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-
-    buttonDisabled: { backgroundColor: '#A9A9A9' }
+    checkoutButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold'
+    },
+    buttonDisabled: {
+        backgroundColor: '#B0B0B0'
+    }
 });
 
 export default CartScreen;

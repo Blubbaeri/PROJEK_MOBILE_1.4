@@ -1,28 +1,19 @@
-//constants/Colors.ts
-
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
+// File: constants/Colors.ts
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+    primary: '#5B4DBC', // Ungu Header
+    secondary: '#26C6DA', // Hijau Tosca (Tombol Add/Cart)
+    background: '#F5F5F7', // Abu-abu muda background
+    white: '#FFFFFF',
+    text: '#1F1F1F',
+    gray: '#8E8E93',
+    lightGray: '#E5E5EA',
+    danger: '#FF5252',
+    success: '#66BB6A',
+    cardShadow: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    }
 };
