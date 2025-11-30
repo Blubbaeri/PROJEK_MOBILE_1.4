@@ -56,13 +56,14 @@ const EquipmentCard: React.FC<EquipmentCardProps> = ({ item, quantityInCart }) =
                     />
                 ) : (
                     <View style={styles.imagePlaceholder}>
-                        <FontAwesome name="flask" size={30} color="#E0E0E0" />
+                        <FontAwesome name="flask" size={40} color="#E0E0E0" />
                     </View>
                 )}
             </View>
 
             {/* Detail Produk */}
             <View style={styles.details}>
+                {/* Judul Barang (Diperbesar) */}
                 <Text style={styles.title} numberOfLines={2}>{item.name}</Text>
 
                 {/* Stok Info */}
@@ -76,14 +77,14 @@ const EquipmentCard: React.FC<EquipmentCardProps> = ({ item, quantityInCart }) =
                     </Text>
                 </View>
 
-                {/* Tombol Add */}
+                {/* Tombol Add (Diperbesar) */}
                 <TouchableOpacity
                     style={[styles.button, displayAvailable <= 0 && styles.buttonDisabled]}
                     onPress={handleAddToCart}
                     disabled={displayAvailable <= 0}
                 >
                     <Text style={styles.buttonText}>
-                        {displayAvailable > 0 ? 'Add' : 'Empty'}
+                        {displayAvailable > 0 ? 'Add to Cart' : 'Empty'}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -93,57 +94,58 @@ const EquipmentCard: React.FC<EquipmentCardProps> = ({ item, quantityInCart }) =
 
 const styles = StyleSheet.create({
     card: {
-        flex: 1,
-        margin: 8,
+        width: '100%', // Mengisi penuh wrapper dari parent
         backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 12,
-        // Shadow Modern
-        elevation: 3,
-        shadowColor: '#5B4DBC', // Shadow agak ungu
+        borderRadius: 20, // Radius lebih besar biar lebih modern
+        padding: 15,      // Padding dalam lebih lega
+        // Shadow Modern & Lebih Deep
+        elevation: 4,
+        shadowColor: '#5B4DBC',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        maxWidth: '46%', // Agar pas 2 kolom
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
         position: 'relative',
-        alignItems: 'center'
+        alignItems: 'center',
+        // Margin dihapus agar diatur oleh EquipmentList parent
     },
-    // Badge Merah di Pojok
+    // Badge Merah
     badge: {
         position: 'absolute',
-        top: 8,
-        right: 8,
+        top: 10,
+        right: 10,
         backgroundColor: '#FF5252',
-        minWidth: 22,
-        height: 22,
-        borderRadius: 11,
+        minWidth: 24,
+        height: 24,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10,
-        borderWidth: 1.5,
+        borderWidth: 2,
         borderColor: 'white'
     },
     badgeText: {
         color: 'white',
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 'bold'
     },
     imageContainer: {
         width: '100%',
-        height: 100,
+        height: 130, // Area gambar lebih tinggi
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 10,
+        backgroundColor: '#FAFAFA', // Sedikit background biar gambar pop
+        borderRadius: 15
     },
     image: {
-        width: 90,
-        height: 90,
+        width: 110, // Gambar lebih besar
+        height: 110,
     },
     imagePlaceholder: {
-        width: 80,
-        height: 80,
-        backgroundColor: '#F5F5F7',
-        borderRadius: 40,
+        width: 100,
+        height: 100,
+        backgroundColor: '#F0F0F0',
+        borderRadius: 50,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -152,45 +154,53 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },
     title: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 6,
+        fontSize: 16, // Font Judul Lebih Besar
+        fontWeight: '800', // Lebih Tebal
+        color: '#2D2D2D',
+        marginBottom: 8,
         textAlign: 'center',
-        height: 40, // Fixed height untuk judul 2 baris
+        height: 44, // Tinggi area teks disesuaikan font baru
+        lineHeight: 22
     },
     stockRow: {
         flexDirection: 'row',
-        marginBottom: 10,
+        marginBottom: 12,
         alignItems: 'center',
-        backgroundColor: '#F5F5F7',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 6
+        backgroundColor: '#F3F0FF', // Background ungu sangat muda
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 8
     },
     stockLabel: {
-        fontSize: 10,
-        color: '#888',
-        marginRight: 4
+        fontSize: 12,
+        color: '#666',
+        marginRight: 6
     },
     stockValue: {
-        fontSize: 11,
+        fontSize: 14,
         fontWeight: 'bold',
     },
     button: {
-        backgroundColor: '#26C6DA', // Warna Cyan/Tosca (Tema Baru)
-        paddingVertical: 8,
+        backgroundColor: '#26C6DA',
+        paddingVertical: 12, // Tombol lebih tinggi/tebal
         width: '100%',
-        borderRadius: 8,
+        borderRadius: 12,
         alignItems: 'center',
+        shadowColor: "#26C6DA",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 2
     },
     buttonDisabled: {
         backgroundColor: '#E0E0E0',
+        elevation: 0,
+        shadowOpacity: 0
     },
     buttonText: {
         color: 'white',
         fontWeight: 'bold',
-        fontSize: 13,
+        fontSize: 14, // Teks tombol lebih besar
     },
 });
 

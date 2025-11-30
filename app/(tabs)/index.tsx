@@ -1,114 +1,51 @@
-import EquipmentCard from '@/components/EquipmentCard';
-import { Equipment, useCart } from '@/context/CartContext';
-import { FontAwesome } from '@expo/vector-icons';
+// file: app/(tabs)/index.tsx
+
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-    ActivityIndicator,
-    FlatList,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    StatusBar
-} from 'react-native';
+import { View, StatusBar, StyleSheet } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+
+// --- IMPORTS COMPONENTS (YANG BARU DIBUAT) ---
+import HomeHeader from '@/components/HomeHeader';
+import EquipmentList from '@/components/EquipmentList';
+
+import { Equipment, useCart } from '@/context/CartContext';
 import { api } from "@/lib/api";
 
-// --- TYPES ---
 type Category = {
     id: number;
     name: string;
     description?: string;
 };
 
-type ListHeaderProps = {
-    searchQuery: string;
-    setSearchQuery: (text: string) => void;
-    categories: Category[];
-    selectedCategory: string | null;
-    setSelectedCategory: (name: string | null) => void;
-};
-
-// --- HEADER COMPONENT (UI BARU) ---
-const ListHeader: React.FC<ListHeaderProps> = ({
-    searchQuery, setSearchQuery,
-    categories, selectedCategory, setSelectedCategory
-}) => (
-    <View style={styles.headerContainer}>
-        {/* Title Section */}
-        <View style={styles.titleRow}>
-            <View style={styles.iconBox}>
-                <FontAwesome name="flask" size={24} color="#5B4DBC" />
-            </View>
-            <View>
-                <Text style={styles.appTitle}>Lab Equipment</Text>
-                <Text style={styles.appSubtitle}>Student Portal</Text>
-            </View>
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-            <FontAwesome name="search" size={18} color="#888" style={styles.searchIcon} />
-            <TextInput
-                placeholder="Search equipment..."
-                style={styles.searchInput}
-                placeholderTextColor="#888"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-            />
-        </View>
-
-        {/* Categories */}
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryScrollView}
-        >
-            <TouchableOpacity
-                style={[styles.categoryButton, selectedCategory === null && styles.categoryButtonActive]}
-                onPress={() => setSelectedCategory(null)}
-            >
-                <Text style={[styles.categoryText, selectedCategory === null && styles.categoryTextActive]}>All</Text>
-            </TouchableOpacity>
-
-            {categories.map((cat) => (
-                <TouchableOpacity
-                    key={cat.id}
-                    style={[styles.categoryButton, selectedCategory === cat.name && styles.categoryButtonActive]}
-                    onPress={() => setSelectedCategory(cat.name)}
-                >
-                    <Text style={[styles.categoryText, selectedCategory === cat.name && styles.categoryTextActive]}>
-                        {cat.name}
-                    </Text>
-                </TouchableOpacity>
-            ))}
-        </ScrollView>
-    </View>
-);
-
 export default function HomeScreen() {
+    // --- STATE MANAGEMENT ---
     const [equipments, setEquipments] = useState<Equipment[]>([]);
     const [allEquipments, setAllEquipments] = useState<Equipment[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
     const { cart } = useCart();
 
-    // === GET EQUIPMENT (LOGIKA LAMA) ===
+    // --- LOGIC: FETCH DATA ---
     const fetchEquipments = useCallback(async () => {
-        setLoading(true);
+        if (!refreshing) setLoading(true);
         try {
             const response = await api.get(`/api/equipment`);
-
             let equipmentData = [];
+
+            // Handle response format
             if (response.data && Array.isArray(response.data.data)) {
                 equipmentData = response.data.data;
+            } else if (Array.isArray(response.data)) {
+                equipmentData = response.data;
             }
 
+            // Map status active
             equipmentData = equipmentData.map((item: any) => ({
                 ...item,
                 isAvailable: item.stock > 0 && item.status === 'active'
@@ -116,40 +53,59 @@ export default function HomeScreen() {
 
             setAllEquipments(equipmentData);
             setEquipments(equipmentData);
-
         } catch (err: any) {
-            console.error("Gagal mengambil data alat:", err.message);
+            console.error("Error fetching data:", err.message);
             setAllEquipments([]);
             setEquipments([]);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    }, [refreshing]);
+
+    // --- LOGIC: FETCH CATEGORIES ---
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const response = await api.get(`/api/category`);
+                let categoriesData = [];
+                if (response.data && Array.isArray(response.data.data)) {
+                    categoriesData = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    categoriesData = response.data;
+                }
+                setCategories(categoriesData);
+            } catch (err) {
+                // Dummy fallback if API fails
+                setCategories([{ id: 1, name: "Drill" }, { id: 2, name: "Micrometer" }]);
+            }
+        };
+        fetchCategories();
     }, []);
 
-    // === FILTER DATA (LOGIKA LAMA) ===
+    // --- LOGIC: FILTERING ---
     useEffect(() => {
-        if (!Array.isArray(allEquipments)) {
-            setEquipments([]);
-            return;
-        }
-
+        if (!Array.isArray(allEquipments)) return;
         let filtered = [...allEquipments];
 
+        // 1. Filter Search
         if (searchQuery) {
-            filtered = filtered.filter((item: Equipment) =>
+            filtered = filtered.filter((item) =>
                 item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
             );
         }
 
+        // 2. Filter Category
         if (selectedCategory) {
-            const selectedCat = categories.find(cat => cat.name === selectedCategory);
-            if (selectedCat) {
-                filtered = filtered.filter((item: Equipment) => item.categoryId === selectedCat.id);
+            const catObj = categories.find(c => c.name === selectedCategory);
+            if (catObj) {
+                filtered = filtered.filter((item) => item.categoryId === catObj.id);
             }
         }
 
-        filtered.sort((a: Equipment, b: Equipment) => {
+        // 3. Sort (Stock First)
+        filtered.sort((a, b) => {
             if (a.stock === 0 && b.stock > 0) return 1;
             if (a.stock > 0 && b.stock === 0) return -1;
             return 0;
@@ -158,144 +114,44 @@ export default function HomeScreen() {
         setEquipments(filtered);
     }, [searchQuery, selectedCategory, allEquipments, categories]);
 
-    // === GET CATEGORY (LOGIKA LAMA) ===
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const response = await api.get(`/api/category`);
-                let categoriesData = [];
+    // --- REFRESH HANDLER ---
+    useFocusEffect(
+        useCallback(() => {
+            fetchEquipments();
+        }, [])
+    );
 
-                if (Array.isArray(response.data)) {
-                    categoriesData = response.data;
-                } else if (response.data && Array.isArray(response.data.data)) {
-                    categoriesData = response.data.data;
-                } else {
-                    categoriesData = [];
-                }
-
-                setCategories(categoriesData);
-            } catch (err) {
-                console.error("Gagal mengambil kategori:", err);
-                setCategories([
-                    { id: 1, name: "Drill" },
-                    { id: 2, name: "Micrometer" },
-                    { id: 3, name: "Caliper" }
-                ]);
-            }
-        };
-        fetchCategories();
-    }, []);
-
-    useEffect(() => {
+    const onRefresh = () => {
+        setRefreshing(true);
         fetchEquipments();
-    }, [fetchEquipments]);
+    };
 
+    // --- RENDER UTAMA (BERSIH & RAPI) ---
     return (
-        <View style={styles.mainContainer}>
+        <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-            <SafeAreaView style={{ flex: 1 }}>
-                <FlatList
-                    ListHeaderComponent={
-                        <ListHeader
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            categories={categories}
-                            selectedCategory={selectedCategory}
-                            setSelectedCategory={setSelectedCategory}
-                        />
-                    }
-                    data={equipments}
-                    keyExtractor={(item) => item.id.toString()}
-                    numColumns={2}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                    renderItem={({ item }) => {
-                        const itemInCart = cart.find((c) => c.id === item.id);
-                        const quantityInCart = itemInCart ? itemInCart.quantity : 0;
-                        return <EquipmentCard item={item} quantityInCart={quantityInCart} />;
-                    }}
-                    ListEmptyComponent={() =>
-                        loading ? (
-                            <ActivityIndicator style={{ marginTop: 50 }} size="large" color="#5B4DBC" />
-                        ) : (
-                            <Text style={styles.centerText}>No equipment found.</Text>
-                        )
-                    }
-                />
-            </SafeAreaView>
+
+            {/* Komponen Header Ungu */}
+            <HomeHeader
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                categories={categories}
+                selectedCategory={selectedCategory}
+                setSelectedCategory={setSelectedCategory}
+            />
+
+            {/* Komponen Daftar Alat */}
+            <EquipmentList
+                data={equipments}
+                loading={loading}
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                cart={cart}
+            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    mainContainer: { flex: 1, backgroundColor: '#F5F5F7' },
-
-    // Header Styles
-    headerContainer: {
-        paddingTop: 20,
-        paddingBottom: 25,
-        backgroundColor: '#5B4DBC', // Ungu Utama
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        marginBottom: 10,
-        paddingHorizontal: 20,
-        elevation: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-    },
-    titleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    iconBox: {
-        width: 50, height: 50,
-        backgroundColor: 'white',
-        borderRadius: 12,
-        justifyContent: 'center', alignItems: 'center',
-        marginRight: 15
-    },
-    appTitle: { fontSize: 22, fontWeight: 'bold', color: 'white' },
-    appSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
-
-    // Search Styles
-    searchContainer: {
-        backgroundColor: 'white',
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        height: 50,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    searchIcon: { marginRight: 10 },
-    searchInput: { flex: 1, height: 50, fontSize: 16, color: '#333' },
-
-    // Category Styles
-    categoryScrollView: {
-        paddingVertical: 5
-    },
-    categoryButton: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        backgroundColor: 'rgba(255,255,255,0.15)', // Transparan Putih
-        borderRadius: 20,
-        marginRight: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-    },
-    categoryButtonActive: {
-        backgroundColor: '#fff',
-        borderColor: '#fff'
-    },
-    categoryText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14
-    },
-    categoryTextActive: {
-        color: '#5B4DBC' // Text jadi ungu saat aktif
-    },
-
-    centerText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#666' },
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
 });
