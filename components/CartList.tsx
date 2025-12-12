@@ -1,44 +1,51 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import CartItemCard from './CartItemCard';
+import CartItemCard from './CartItemCard'; // <--- KITA PANGGIL KARTU YANG KAMU BUAT
 
-type CartListProps = {
+interface CartListProps {
     cart: any[];
     totalItems: number;
     isBooking: boolean;
-    onRemove: (id: number) => void;
-    onIncrease: (id: number) => void;
-    onDecrease: (id: number) => void;
+    onRemove: (id: any) => void;
+    onIncrease: (id: any) => void;
+    onDecrease: (id: any) => void;
     onCheckout: () => void;
     onBrowse: () => void;
-};
+}
 
-const CartList = ({
-    cart, totalItems, isBooking,
-    onRemove, onIncrease, onDecrease, onCheckout, onBrowse
-}: CartListProps) => {
+export default function CartList({
+    cart,
+    totalItems, // Ambil props totalItems
+    onRemove,
+    onIncrease,
+    onDecrease,
+    onCheckout,
+    onBrowse
+}: CartListProps) {
 
+    // 1. KALO KOSONG
+    if (!cart || cart.length === 0) {
+        return (
+            <View style={styles.emptyContainer}>
+                <FontAwesome name="shopping-basket" size={60} color="#ccc" />
+                <Text style={styles.emptyText}>Your cart is empty</Text>
+                <TouchableOpacity style={styles.browseButton} onPress={onBrowse}>
+                    <Text style={styles.browseText}>Browse Equipment</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    // 2. KALO ADA ISINYA
     return (
-        <View style={styles.whiteSheet}>
+        <View style={{ flex: 1 }}>
             <FlatList
                 data={cart}
                 keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <View style={styles.emptyIconCircle}>
-                            <FontAwesome name="shopping-basket" size={50} color="#CCC" />
-                        </View>
-                        <Text style={styles.emptyText}>Keranjang Kosong</Text>
-                        <Text style={styles.emptySubText}>Belum ada alat yang ditambahkan.</Text>
-                        <TouchableOpacity style={styles.browseButton} onPress={onBrowse}>
-                            <Text style={styles.browseButtonText}>Cari Alat</Text>
-                        </TouchableOpacity>
-                    </View>
-                }
+                contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
                 renderItem={({ item }) => (
+                    // PANGGIL COMPONENT CARD DI SINI
                     <CartItemCard
                         item={item}
                         onRemove={onRemove}
@@ -49,66 +56,31 @@ const CartList = ({
             />
 
             {/* FOOTER CHECKOUT */}
-            {cart.length > 0 && (
-                <View style={styles.footerContainer}>
-                    <View style={styles.totalInfo}>
-                        <Text style={styles.totalLabel}>Total Items</Text>
-                        <Text style={styles.totalValue}>{totalItems} pcs</Text>
-                    </View>
-                    <TouchableOpacity
-                        style={[styles.checkoutButton, isBooking && styles.buttonDisabled]}
-                        onPress={onCheckout}
-                        disabled={isBooking}
-                    >
-                        {isBooking ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <>
-                                <Text style={styles.checkoutButtonText}>Proceed Booking</Text>
-                                <FontAwesome name="arrow-right" size={14} color="white" style={{ marginLeft: 8 }} />
-                            </>
-                        )}
-                    </TouchableOpacity>
+            <View style={styles.footer}>
+                <View style={styles.totalInfo}>
+                    <Text style={styles.totalText}>Total Items:</Text>
+                    {/* Pakai props totalItems biar ga hitung ulang */}
+                    <Text style={styles.totalValue}>{totalItems} pcs</Text>
                 </View>
-            )}
+                <TouchableOpacity style={styles.checkoutBtn} onPress={onCheckout}>
+                    <Text style={styles.checkoutText}>Proceed Booking</Text>
+                    <FontAwesome name="arrow-right" size={16} color="white" />
+                </TouchableOpacity>
+            </View>
         </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
-    whiteSheet: {
-        flex: 1, backgroundColor: '#F5F5F7', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden',
-    },
-    listContent: { padding: 20, paddingBottom: 100 },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    emptyText: { marginTop: 10, fontSize: 16, color: '#888', marginBottom: 20 },
+    browseButton: { backgroundColor: '#5B4DBC', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 8 },
+    browseText: { color: 'white', fontWeight: 'bold' },
 
-    // Empty State
-    emptyContainer: { alignItems: 'center', marginTop: 60 },
-    emptyIconCircle: {
-        width: 100, height: 100, backgroundColor: '#E8E6F3', borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20
-    },
-    emptyText: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-    emptySubText: { fontSize: 14, color: '#999', marginTop: 5, marginBottom: 30 },
-    browseButton: {
-        paddingVertical: 12, paddingHorizontal: 25, backgroundColor: '#5B4DBC', borderRadius: 25, elevation: 3
-    },
-    browseButtonText: { color: 'white', fontWeight: 'bold' },
-
-    // Footer
-    footerContainer: {
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        backgroundColor: 'white', paddingVertical: 15, paddingHorizontal: 20,
-        borderTopLeftRadius: 25, borderTopRightRadius: 25,
-        flexDirection: 'row', alignItems: 'center',
-        shadowColor: "#000", shadowOffset: { width: 0, height: -3 }, shadowOpacity: 0.1, shadowRadius: 5, elevation: 15
-    },
-    totalInfo: { flex: 1 },
-    totalLabel: { fontSize: 12, color: '#888' },
-    totalValue: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-    checkoutButton: {
-        flex: 1.5, backgroundColor: '#5B4DBC', borderRadius: 14, paddingVertical: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'
-    },
-    buttonDisabled: { backgroundColor: '#B0B0B0' },
-    checkoutButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+    footer: { padding: 20, backgroundColor: 'white', borderTopWidth: 1, borderColor: '#eee', position: 'absolute', bottom: 0, left: 0, right: 0 },
+    totalInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+    totalText: { color: '#888' },
+    totalValue: { fontWeight: 'bold', fontSize: 16, color: '#333' },
+    checkoutBtn: { backgroundColor: '#5B4DBC', padding: 15, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    checkoutText: { color: 'white', fontWeight: 'bold', marginRight: 10 }
 });
-
-export default CartList;

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-// --- TYPES (Diexport agar bisa dipakai di file lain) ---
+// --- TYPES (Supaya tidak error di file lain) ---
 export type TransactionStatus = 'pending' | 'BOOKING' | 'SEDANG_DIPINJAM' | 'SELESAI' | 'DITOLAK' | 'DIBATALKAN';
 
 export type TransactionItem = {
@@ -43,22 +43,31 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
             day: 'numeric', month: 'short', year: 'numeric'
         }) : '-';
 
+    // Menampilkan preview barang (maksimal 2 nama)
     const renderItems = (items: TransactionItem[]) => {
         if (!items || items.length === 0) return "No items details";
-        return items.map(item => `${item.equipmentName} (${item.quantity})`).join(', ');
+        const preview = items.slice(0, 2).map(item => `${item.equipmentName} (${item.quantity})`).join(', ');
+        return items.length > 2 ? `${preview}, +${items.length - 2} more` : preview;
     };
 
-    const handleShowQR = () => {
+    // --- LOGIKA UTAMA: PINDAH KE DETAIL ---
+    const handlePressCard = () => {
         router.push({
-            pathname: '/(tabs)/booking-qr',
-            params: { txnId: `TXN-${transaction.id}`, qrCode: transaction.qrCode }
+            pathname: '/transaction-detail',
+            params: {
+                id: transaction.id,
+                status: safeStatus,
+                // Kita kirim QR Code juga biar nanti bisa dipake di halaman Return
+                qrCode: transaction.qrCode,
+                // Kirim data item sebagai string JSON
+                items: JSON.stringify(transaction.items)
+            }
         });
     };
 
-    const showQRButton = ['pending', 'BOOKING'].includes(safeStatus);
-
     return (
-        <View style={styles.card}>
+        <TouchableOpacity style={styles.card} onPress={handlePressCard} activeOpacity={0.7}>
+            {/* Header: Icon, ID, Status */}
             <View style={styles.cardHeader}>
                 <View style={styles.iconContainer}>
                     <FontAwesome name="exchange" size={18} color="#5B4DBC" />
@@ -74,21 +83,15 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
                 </View>
             </View>
 
+            {/* Footer: Tanggal & Label QR */}
             <View style={styles.cardFooter}>
                 <View style={styles.dateContainer}>
                     <FontAwesome name="calendar" size={12} color="#888" style={{ marginRight: 5 }} />
                     <Text style={styles.timestamp}>{formatDate(displayDate)}</Text>
                 </View>
-
-                {showQRButton ? (
-                    <TouchableOpacity style={styles.smallBtn} onPress={handleShowQR}>
-                        <Text style={styles.smallBtnText}>Show QR</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <Text style={styles.qrText}>{transaction.qrCode || '-'}</Text>
-                )}
+                <Text style={styles.qrText}>{transaction.qrCode || '-'}</Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -102,7 +105,7 @@ const styles = StyleSheet.create({
         width: 36, height: 36, backgroundColor: '#F3F0FF', borderRadius: 10, justifyContent: 'center', alignItems: 'center'
     },
     txnCode: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-    itemsText: { fontSize: 12, color: '#666', marginTop: 2 },
+    itemsText: { fontSize: 12, color: '#666', marginTop: 2, maxWidth: 180 },
     statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6 },
     statusText: { fontSize: 10, fontWeight: 'bold' },
     cardFooter: {
@@ -111,8 +114,6 @@ const styles = StyleSheet.create({
     },
     dateContainer: { flexDirection: 'row', alignItems: 'center' },
     timestamp: { fontSize: 12, color: '#999' },
-    smallBtn: { backgroundColor: '#5B4DBC', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 6 },
-    smallBtnText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
     qrText: { fontSize: 11, color: '#aaa', fontFamily: 'monospace' }
 });
 

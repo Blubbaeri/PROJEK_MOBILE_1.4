@@ -1,13 +1,14 @@
-// context/AuthContext.tsx 
+// src/context/AuthContext.tsx 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ GANTI INI
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 const TOKEN_KEY = 'my-jwt';
 
 interface AuthContextType {
-    signIn: (token: string) => void;
-    signOut: () => void;
+    // Ubah jadi Promise<void> biar kita bisa pake 'await signIn()' di halaman login
+    signIn: (token: string) => Promise<void>;
+    signOut: () => Promise<void>;
     session: string | null;
     isLoading: boolean;
 }
@@ -29,10 +30,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const loadToken = async () => {
             try {
-                const token = await AsyncStorage.getItem(TOKEN_KEY); // ✅ GANTI
+                const token = await AsyncStorage.getItem(TOKEN_KEY);
                 if (token) {
-                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    // Set token ke state
                     setSession(token);
+                    // Set token ke header global axios
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
                 }
             } catch (e) {
                 console.error("Gagal memuat token dari storage", e);
@@ -44,15 +47,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const authContextValue = {
-        signIn: async (token: string) => { // ✅ TAMBAHIN async
+        signIn: async (token: string) => {
             setSession(token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            await AsyncStorage.setItem(TOKEN_KEY, token); // ✅ GANTI
+            await AsyncStorage.setItem(TOKEN_KEY, token);
         },
-        signOut: async () => { // ✅ TAMBAHIN async
+        signOut: async () => {
             setSession(null);
             delete axios.defaults.headers.common['Authorization'];
-            await AsyncStorage.removeItem(TOKEN_KEY); // ✅ GANTI
+            await AsyncStorage.removeItem(TOKEN_KEY);
         },
         session,
         isLoading,

@@ -1,157 +1,182 @@
-// file: app/(tabs)/index.tsx
+﻿import React, { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, StatusBar } from 'react-native';
+import axios from 'axios'; // Library untuk melakukan request HTTP ke Backend
+import { useFocusEffect } from 'expo-router'; // Hook untuk mendeteksi saat layar aktif/fokus
+import { useCart } from '../../context/CartContext'; // Mengambil fungsi keranjang dari Global State
+import Toast from 'react-native-toast-message'; // Library untuk menampilkan notifikasi pop-up
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, StatusBar, StyleSheet } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+// --- IMPORT KOMPONEN TAMPILAN ---
+// Memisahkan komponen Header dan List agar kode di file ini tidak terlalu panjang
+import HomeHeader from '../../components/HomeHeader';
+import EquipmentList from '../../components/EquipmentList';
 
-// --- IMPORTS COMPONENTS (YANG BARU DIBUAT) ---
-import HomeHeader from '@/components/HomeHeader';
-import EquipmentList from '@/components/EquipmentList';
+// --- KONFIGURASI SERVER ---
+// IP Address dipisahkan ke variabel agar mudah diganti jika pindah jaringan Wi-Fi.
+const IP_ADDRESS = "172.20.10.2";
+const PORT = "5234";
+const API_URL = `http://${IP_ADDRESS}:${PORT}/api/equipment`;
 
-import { Equipment, useCart } from '@/context/CartContext';
-import { api } from "@/lib/api";
-
-type Category = {
-    id: number;
-    name: string;
-    description?: string;
-};
+// --- DATA KATEGORI STATIS ---
+// Daftar kategori ini digunakan hanya untuk tampilan tombol filter.
+const CATEGORY_CHIPS = [
+    { id: 1, name: 'Administrative' },
+    { id: 2, name: 'Caliper' },
+    { id: 3, name: 'Cutting Tools' },
+    { id: 4, name: 'Measuring' },
+    { id: 5, name: 'Hand Tools' }
+];
 
 export default function HomeScreen() {
-    // --- STATE MANAGEMENT ---
-    const [equipments, setEquipments] = useState<Equipment[]>([]);
-    const [allEquipments, setAllEquipments] = useState<Equipment[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    // Mengambil fungsi addToCart dari Context agar bisa dipakai di sini
+    const { addToCart } = useCart();
 
-    // Filter State
-    const [searchQuery, setSearchQuery] = useState('');
+    // --- STATE MANAGEMENT (Penyimpanan Data Sementara) ---
+
+    // equipment: Array untuk menyimpan data barang yang diambil dari API
+    const [equipment, setEquipment] = useState<any[]>([]);
+
+    // selectedCategory: Menyimpan nama kategori yang sedang dipilih user (null artinya All)
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-    const { cart } = useCart();
+    // searchQuery: Menyimpan teks yang diketik user di kolom pencarian
+    const [searchQuery, setSearchQuery] = useState('');
 
-    // --- LOGIC: FETCH DATA ---
-    const fetchEquipments = useCallback(async () => {
-        if (!refreshing) setLoading(true);
+    // State untuk indikator loading (saat ambil data) dan refreshing (saat tarik layar)
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // --- FUNGSI 1: MENGAMBIL DATA DARI SERVER (FETCH DATA) ---
+    const fetchData = async (categoryName: string | null) => {
+        setIsLoading(true); // Aktifkan indikator loading sebelum request dimulai
         try {
-            const response = await api.get(`/api/equipment`);
-            let equipmentData = [];
+            let url = API_URL; // Gunakan URL default (ambil semua data)
 
-            // Handle response format
-            if (response.data && Array.isArray(response.data.data)) {
-                equipmentData = response.data.data;
-            } else if (Array.isArray(response.data)) {
-                equipmentData = response.data;
+            // Logika untuk mengubah URL jika ada kategori yang dipilih
+            if (categoryName && categoryName !== 'All') {
+                // encodeURIComponent digunakan untuk mengamankan teks URL (misal spasi jadi %20)
+                const encodedName = encodeURIComponent(categoryName);
+                url = `${API_URL}/category/${encodedName}`;
+                console.log("Request ke URL Kategori:", url);
+            } else {
+                console.log("Request ke URL Semua Data:", url);
             }
 
-            // Map status active
-            equipmentData = equipmentData.map((item: any) => ({
-                ...item,
-                isAvailable: item.stock > 0 && item.status === 'active'
-            }));
+            // Melakukan request GET ke Backend menggunakan Axios
+            const response = await axios.get(url);
 
-            setAllEquipments(equipmentData);
-            setEquipments(equipmentData);
-        } catch (err: any) {
-            console.error("Error fetching data:", err.message);
-            setAllEquipments([]);
-            setEquipments([]);
+            // Validasi Data: Memastikan response adalah Array. 
+            // Jika bukan array (misal error), gunakan array kosong [] agar aplikasi tidak crash.
+            const data = Array.isArray(response.data) ? response.data : (response.data.data || []);
+
+            // Simpan data yang didapat ke dalam State equipment
+            setEquipment(data);
+
+        } catch (error) {
+            console.error("Gagal mengambil data:", error);
+            setEquipment([]); // Kosongkan data jika terjadi error
         } finally {
-            setLoading(false);
-            setRefreshing(false);
+            // Matikan indikator loading baik sukses maupun gagal
+            setIsLoading(false);
+            setIsRefreshing(false);
         }
-    }, [refreshing]);
-
-    // --- LOGIC: FETCH CATEGORIES ---
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const response = await api.get(`/api/category`);
-                let categoriesData = [];
-                if (response.data && Array.isArray(response.data.data)) {
-                    categoriesData = response.data.data;
-                } else if (Array.isArray(response.data)) {
-                    categoriesData = response.data;
-                }
-                setCategories(categoriesData);
-            } catch (err) {
-                // Dummy fallback if API fails
-                setCategories([{ id: 1, name: "Drill" }, { id: 2, name: "Micrometer" }]);
-            }
-        };
-        fetchCategories();
-    }, []);
-
-    // --- LOGIC: FILTERING ---
-    useEffect(() => {
-        if (!Array.isArray(allEquipments)) return;
-        let filtered = [...allEquipments];
-
-        // 1. Filter Search
-        if (searchQuery) {
-            filtered = filtered.filter((item) =>
-                item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
-            );
-        }
-
-        // 2. Filter Category
-        if (selectedCategory) {
-            const catObj = categories.find(c => c.name === selectedCategory);
-            if (catObj) {
-                filtered = filtered.filter((item) => item.categoryId === catObj.id);
-            }
-        }
-
-        // 3. Sort (Stock First)
-        filtered.sort((a, b) => {
-            if (a.stock === 0 && b.stock > 0) return 1;
-            if (a.stock > 0 && b.stock === 0) return -1;
-            return 0;
-        });
-
-        setEquipments(filtered);
-    }, [searchQuery, selectedCategory, allEquipments, categories]);
-
-    // --- REFRESH HANDLER ---
-    useFocusEffect(
-        useCallback(() => {
-            fetchEquipments();
-        }, [])
-    );
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchEquipments();
     };
 
-    // --- RENDER UTAMA (BERSIH & RAPI) ---
+    // --- FUNGSI 2: PEMICU OTOMATIS (TRIGGER) ---
+    // useFocusEffect akan menjalankan kode di dalamnya setiap kali layar ini menjadi aktif.
+    useFocusEffect(
+        useCallback(() => {
+            // Panggil fetchData setiap kali variabel selectedCategory berubah
+            fetchData(selectedCategory);
+        }, [selectedCategory])
+    );
+
+    // --- FUNGSI 3: FILTER PENCARIAN (CLIENT SIDE) ---
+    // Memfilter data yang sudah ada di memori berdasarkan teks pencarian.
+    // Ini dilakukan di sisi aplikasi (bukan request baru) agar responsif.
+    const filteredData = equipment.filter(item =>
+        item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // --- FUNGSI 4: MENAMBAH KE KERANJANG ---
+    const handleAddToCart = (item: any) => {
+        // Validasi: Cek apakah stok barang masih ada
+        if (item.stock <= 0) {
+            Toast.show({ type: 'error', text1: 'Stok Habis!', text2: 'Barang ini sudah tidak tersedia.' });
+            return;
+        }
+
+        // Langkah 1: Masukkan data barang ke Global Context (Cart)
+        addToCart({
+            id: item.id,
+            name: item.name,
+            price: item.price || 0,
+            quantity: 1,
+            image: item.image,
+            stock: item.stock
+        });
+
+        // Langkah 2: Update Tampilan Stok Secara Langsung (Optimistic Update)
+        // Kita mengurangi stok di tampilan user tanpa menunggu respon server
+        // agar aplikasi terasa cepat.
+        setEquipment(currentData =>
+            currentData.map(eq => {
+                if (eq.id === item.id) {
+                    return { ...eq, stock: eq.stock - 1 }; // Kurangi stok sebanyak 1
+                }
+                return eq; // Barang lain tidak berubah
+            })
+        );
+
+        // Tampilkan notifikasi sukses
+        Toast.show({ type: 'success', text1: 'Berhasil', text2: `${item.name} masuk keranjang` });
+    };
+
+    // Fungsi yang dijalankan saat user menarik layar ke bawah (Refresh)
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        fetchData(selectedCategory);
+    };
+
+    // --- STRUKTUR TAMPILAN (UI) ---
     return (
-        <View style={styles.container}>
+        <View style={styles.mainContainer}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
-            {/* Komponen Header Ungu */}
+            {/* HEADER: Berisi kolom pencarian dan tombol kategori */}
             <HomeHeader
                 searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                categories={categories}
+                setSearchQuery={setSearchQuery} // Mengirim fungsi untuk update teks pencarian
+                categories={CATEGORY_CHIPS}
                 selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
+
+                // Callback saat kategori diklik
+                setSelectedCategory={(catName) => {
+                    setSelectedCategory(catName); // State berubah -> useFocusEffect jalan -> fetchData jalan
+                }}
             />
 
-            {/* Komponen Daftar Alat */}
-            <EquipmentList
-                data={equipments}
-                loading={loading}
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                cart={cart}
-            />
+            {/* BODY: Berisi daftar barang */}
+            <View style={styles.bodyContainer}>
+                <EquipmentList
+                    data={filteredData} // Data yang ditampilkan adalah hasil filter
+                    loading={isLoading}
+                    refreshing={isRefreshing}
+                    onRefresh={handleRefresh}
+                    onAddToCart={handleAddToCart} // Mengirim fungsi keranjang ke komponen anak
+                />
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#5B4DBC' },
+    mainContainer: { flex: 1, backgroundColor: '#5B4DBC' },
+    bodyContainer: {
+        flex: 1,
+        backgroundColor: '#F5F5F7',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden',
+        paddingTop: 10
+    }
 });

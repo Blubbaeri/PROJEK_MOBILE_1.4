@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import { CartProvider, useCart } from '@/context/CartContext';
+import { CartProvider, useCart } from '../../context/CartContext';
 import { PaperProvider } from 'react-native-paper';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 

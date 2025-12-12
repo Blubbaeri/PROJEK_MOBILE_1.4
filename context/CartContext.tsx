@@ -1,164 +1,92 @@
-// context/CartContext.tsx
-import React, { createContext, useContext, useState } from "react";
-import Toast from "react-native-toast-message";
-import { Snackbar } from "react-native-paper";
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-export type Equipment = {
-    id: number;
+// Definisi Tipe Data
+export interface CartItem {
+    id: number | string;
     name: string;
-    categoryId: number;       
-    locationId: number;      
-    stock: number;
-    condition: string;
-    status: string;
-    isAvailable: boolean;
-    description?: string;
-    image?: string;
+    image?: any;
     quantity: number;
-};
+    stock?: number;
+    price?: number;
+}
 
-type CartContextType = {
-    cart: Equipment[];
-    addToCart: (item: Equipment) => void;
-    removeFromCart: (itemId: number) => void;
-    increaseQuantity: (itemId: number) => void;
-    decreaseQuantity: (itemId: number) => void;
-    clearCart: () => void;
+interface CartContextType {
+    cartItems: CartItem[];
     totalItems: number;
-};
+    addToCart: (item: CartItem) => void;
+    removeFromCart: (id: number | string) => void;
+    increaseQuantity: (id: number | string) => void;
+    decreaseQuantity: (id: number | string) => void;
+    clearCart: () => void;
+}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export const useCart = () => {
-    const context = useContext(CartContext);
-    if (!context) throw new Error("useCart must be used inside CartProvider");
-    return context;
-};
+export const CartProvider = ({ children }: { children: ReactNode }) => {
+    const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-export const CartProvider = ({ children }: { children: React.ReactNode }) => {
-    const [cart, setCart] = useState<Equipment[]>([]);
-    const [snackbarVisible, setSnackbarVisible] = useState(false);
-    const [snackbarMsg, setSnackbarMsg] = useState("");
+    // Hitung total semua barang di keranjang
+    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-    const showSnackbar = (msg: string) => {
-        setSnackbarMsg(msg);
-        setSnackbarVisible(true);
-    };
+    const addToCart = (newItem: CartItem) => {
+        console.log("Menambahkan ke Cart:", newItem); // Debugging
 
-    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        setCartItems((prevItems) => {
+            // Cek apakah barang udah ada (Pakai String biar aman ID-nya)
+            const existingItem = prevItems.find((item) => String(item.id) === String(newItem.id));
 
-    // -----------------------------
-    // ADD TO CART
-    // -----------------------------
-    const addToCart = (item: Equipment) => {
-        if (item.stock <= 0) {
-            Toast.show({
-                type: "error",
-                text1: "Stok Habis",
-                text2: `${item.name} tidak tersedia.`,
-            });
-            return;
-        }
-
-        if (totalItems >= 10) {
-            showSnackbar("Anda sudah mencapai batas kuantitas maksimal.");
-            return;
-        }
-
-        setCart((prevCart) => {
-            const exist = prevCart.find((i) => i.id === item.id);
-            if (exist) {
-                if (exist.quantity >= item.stock) {
-                    Toast.show({ type: "error", text1: "Stok Tidak Cukup" });
-                    return prevCart;
-                }
-                return prevCart.map((i) =>
-                    i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+            if (existingItem) {
+                // Kalau udah ada, tambah qty + 1
+                return prevItems.map((item) =>
+                    String(item.id) === String(newItem.id)
+                        ? { ...item, quantity: item.quantity + 1 }
+                        : item
                 );
+            } else {
+                // Kalau belum ada, masukin baru
+                return [...prevItems, { ...newItem, quantity: 1 }];
             }
-
-            return [...prevCart, { ...item, quantity: 1 }];
         });
     };
 
-    // -----------------------------
-    // REMOVE FROM CART
-    // -----------------------------
-    const removeFromCart = (itemId: number) => {
-        setCart((prev) => prev.filter((item) => item.id !== itemId));
+    const removeFromCart = (id: number | string) => {
+        setCartItems((prev) => prev.filter((item) => String(item.id) !== String(id)));
     };
 
-    // -----------------------------
-    // INCREASE QUANTITY
-    // -----------------------------
-    const increaseQuantity = (itemId: number) => {
-        const itemData = cart.find((item) => item.id === itemId);
-        if (!itemData) return;
-
-        if (itemData.quantity >= itemData.stock) {
-            Toast.show({
-                type: "error",
-                text1: "Stok Tidak Cukup",
-                text2: `Stok untuk ${itemData.name} sudah maksimal.`,
-            });
-            return;
-        }
-
-        if (totalItems >= 10) {
-            showSnackbar("Anda sudah mencapai batas kuantitas maksimal.");
-            return;
-        }
-
-        setCart((prevCart) =>
-            prevCart.map((item) =>
-                item.id === itemId
-                    ? { ...item, quantity: item.quantity + 1 }
-                    : item
-            )
-        );
+    const increaseQuantity = (id: number | string) => {
+        setCartItems((prev) => prev.map((item) =>
+            String(item.id) === String(id) ? { ...item, quantity: item.quantity + 1 } : item
+        ));
     };
 
-    // -----------------------------
-    // DECREASE QUANTITY
-    // -----------------------------
-    const decreaseQuantity = (itemId: number) => {
-        setCart((prevCart) =>
-            prevCart
-                .map((item) =>
-                    item.id === itemId
-                        ? { ...item, quantity: item.quantity - 1 }
-                        : item
-                )
-                .filter((item) => item.quantity > 0)
-        );
+    const decreaseQuantity = (id: number | string) => {
+        setCartItems((prev) => prev.map((item) => {
+            if (String(item.id) === String(id) && item.quantity > 1) {
+                return { ...item, quantity: item.quantity - 1 };
+            }
+            return item;
+        }));
     };
 
-    // Clear cart
-    const clearCart = () => {
-        setCart([]);
-    };
+    const clearCart = () => setCartItems([]);
 
     return (
-        <CartContext.Provider
-            value={{
-                cart,
-                addToCart,
-                removeFromCart,
-                increaseQuantity,
-                decreaseQuantity,
-                totalItems,
-                clearCart,
-            }}
-        >
+        <CartContext.Provider value={{
+            cartItems,
+            totalItems,
+            addToCart,
+            removeFromCart,
+            increaseQuantity,
+            decreaseQuantity,
+            clearCart
+        }}>
             {children}
-
-            <Snackbar
-                visible={snackbarVisible}
-                duration={2000}
-                onDismiss={() => setSnackbarVisible(false)}
-            >
-                {snackbarMsg}
-            </Snackbar>
         </CartContext.Provider>
     );
+};
+
+export const useCart = () => {
+    const context = useContext(CartContext);
+    if (!context) throw new Error("useCart must be used within a CartProvider");
+    return context;
 };

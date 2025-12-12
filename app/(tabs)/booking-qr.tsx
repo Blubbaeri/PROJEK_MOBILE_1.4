@@ -1,79 +1,126 @@
-// file: app/booking-qr.tsx
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FontAwesome } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function BookingQRScreen() {
+// Import komponen modular
+import BookingStatus from '../../components/BookingStatus';
+import QrCodeDisplay from '../../components/QrCodeDisplay';
+import BookingItemList from '../../components/BookingItemList';
+
+export default function BookingQr() {
     const router = useRouter();
-    const params = useLocalSearchParams();
+    const { data } = useLocalSearchParams();
 
-    // Ambil data dari parameter navigasi
-    const txnId = params.txnId || 'TXN-0000';
-    const qrCode = params.qrCode || 'NO-QR';
+    // Parsing Data dengan Safety
+    let borrowingData = null;
+    if (data) {
+        try { borrowingData = JSON.parse(data as string); } catch (e) { console.error("Parse Error", e); }
+    }
 
-    // Kita pakai API QR Server biar gampang generate QR tanpa library tambahan
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${qrCode}`;
+    const handleBack = () => {
+        // Karena transaksi selesai, lebih baik balik ke Home atau Transaction History
+        router.replace('/(tabs)');
+    };
+
+    if (!borrowingData) {
+        return (
+            <View style={styles.center}>
+                <Ionicons name="alert-circle-outline" size={50} color="#FF5252" />
+                <Text style={{ marginTop: 10, color: '#555' }}>Data Booking Tidak Ditemukan</Text>
+                <TouchableOpacity onPress={handleBack} style={{ marginTop: 20 }}>
+                    <Text style={{ color: '#5B4DBC', fontWeight: 'bold' }}>Kembali ke Home</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    // --- OPTIMASI QR CODE BIAR GAMPANG DISCAN DESKTOP ---
+
+    // 1. Saring data items. Ambil ID dan Quantity aja.
+    // Hapus 'image', 'description', dll biar QR ga padet.
+    const cleanItems = borrowingData.items.map((item: any) => ({
+        id: item.equipmentId || item.id, // ID Barang
+        qty: item.quantity               // Jumlah
+    }));
+
+    // 2. Bungkus jadi JSON seringkas mungkin
+    const qrPayload = JSON.stringify({
+        // Kirim ID Transaksi (Penting buat Admin cek di DB)
+        trxId: borrowingData.id,
+
+        // Kirim NIM Mahasiswa
+        nim: borrowingData.studentId,
+
+        // Kirim List Barang (Versi Ringkas)
+        items: cleanItems
+    });
 
     return (
-        <View style={styles.container}>
+        <View style={styles.mainContainer}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
-            {/* Header */}
+            {/* HEADER */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <FontAwesome name="arrow-left" size={20} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Booking QR Code</Text>
-                <View style={{ width: 20 }} />
-            </View>
-
-            {/* White Container */}
-            <View style={styles.whiteSheet}>
-                <View style={styles.content}>
-                    <Text style={styles.title}>Your Booking Code</Text>
-                    <Text style={styles.subtitle}>Transaction ID: {txnId}</Text>
-
-                    <View style={styles.qrContainer}>
-                        {/* QR Code Image */}
-                        <Image
-                            source={{ uri: qrImageUrl }}
-                            style={styles.qrImage}
-                        />
+                <SafeAreaView>
+                    <View style={styles.headerContent}>
+                        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                            <Ionicons name="close" size={24} color="white" />
+                        </TouchableOpacity>
+                        <Text style={styles.headerTitle}>E-Ticket</Text>
+                        <View style={{ width: 24 }} />
                     </View>
-
-                    <Text style={styles.instruction}>
-                        Show this QR code to the lab assistant to pick up your equipment.
-                    </Text>
-                </View>
+                </SafeAreaView>
             </View>
+
+            {/* BODY SCROLL */}
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+                {/* 1. Status */}
+                <BookingStatus status={borrowingData.status} />
+
+                {/* 2. QR Code (Membawa Data Items) */}
+                <QrCodeDisplay qrValue={qrPayload} readableCode={borrowingData.qrCode || borrowingData.id} />
+
+                {/* 3. List Barang */}
+                <BookingItemList items={borrowingData.items} />
+
+                {/* Tombol Selesai */}
+                <TouchableOpacity style={styles.doneButton} onPress={handleBack}>
+                    <Text style={styles.doneButtonText}>Selesai & Kembali</Text>
+                </TouchableOpacity>
+
+            </ScrollView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#5B4DBC' },
+    mainContainer: { flex: 1, backgroundColor: '#F5F5F7' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
     header: {
-        height: 100, flexDirection: 'row', alignItems: 'flex-end',
-        justifyContent: 'space-between', padding: 20, paddingBottom: 25
+        backgroundColor: '#5B4DBC',
+        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 0,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
+        elevation: 5, zIndex: 10,
     },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-    backBtn: { padding: 5 },
-
-    whiteSheet: {
-        flex: 1, backgroundColor: '#F5F5F7',
-        borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 30
+    headerContent: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 20, paddingVertical: 15,
     },
-    content: { alignItems: 'center', marginTop: 20 },
-    title: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-    subtitle: { fontSize: 16, color: '#888', marginBottom: 30 },
+    headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    backButton: { padding: 5, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
 
-    qrContainer: {
-        padding: 20, backgroundColor: 'white', borderRadius: 20,
-        elevation: 5, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10,
-        marginBottom: 30
+    scrollContent: { padding: 20, paddingBottom: 50 },
+
+    doneButton: {
+        marginTop: 25,
+        backgroundColor: '#5B4DBC',
+        paddingVertical: 15, borderRadius: 15,
+        alignItems: 'center',
+        elevation: 4, shadowColor: "#5B4DBC", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5,
     },
-    qrImage: { width: 220, height: 220 },
-
-    instruction: { textAlign: 'center', color: '#666', lineHeight: 22, paddingHorizontal: 20 }
+    doneButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });

@@ -1,5 +1,3 @@
-// file: src/app/(auth)/login.tsx
-
 import React, { useState } from 'react';
 import {
     View,
@@ -7,7 +5,6 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
-    Image,
     Alert,
     ActivityIndicator,
     StatusBar,
@@ -15,36 +12,53 @@ import {
     Platform,
     ScrollView
 } from 'react-native';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // <--- 1. INI PENTING (Import Router)
 
 export default function LoginScreen() {
+    const router = useRouter(); // <--- 2. Panggil Router
     const [email, setEmail] = useState('budi@student.simpel.lab');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
     const { signIn } = useAuth();
 
-    // --- LOGIKA LOGIN (TETAP SAMA) ---
     const handleSignIn = async () => {
-        console.log('Login attempt:', email, password);
-
+        // Validasi Input Kosong
         if (!email || !password) {
-            Alert.alert('Error', 'Please enter both email and password.');
+            Alert.alert('Gagal', 'Mohon isi Email dan Password.');
             return;
         }
 
         setIsLoading(true);
 
-        // Simulasi delay network
-        setTimeout(() => {
-            if (email === 'budi@student.simpel.lab' && password === '123456') {
-                console.log('Login success (local)');
-                signIn("dummy_token_123");
+        try {
+            // Cek Password Dummy (Harus 123456)
+            if (password === '123456') {
+
+                const dummyToken = "eyJhGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy";
+
+                // 1. Simpan status login
+                await signIn(dummyToken);
+
+                // 2. PAKSA PINDAH HALAMAN (Navigation)
+                // Ini yang bikin tombolnya bereaksi langsung pindah ke Home/Tabs
+                router.replace('/(tabs)');
+
             } else {
-                Alert.alert('Login Failed', 'Invalid email or password.');
+                Alert.alert(
+                    'Login Gagal',
+                    'Password salah! Coba ketik: 123456'
+                );
             }
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Terjadi kesalahan sistem.');
+        } finally {
+            // Kita set false di sini, tapi kalau sukses biasanya keburu pindah halaman (aman)
             setIsLoading(false);
-        }, 800);
+        }
     };
 
     return (
@@ -58,10 +72,7 @@ export default function LoginScreen() {
                 {/* --- LOGO SECTION --- */}
                 <View style={styles.logoContainer}>
                     <View style={styles.logoBox}>
-                        {/* Menggunakan FontAwesome Flask agar konsisten dengan Home, 
-                            atau ganti dengan Image jika ingin pakai icon.png kamu */}
                         <FontAwesome name="flask" size={40} color="#5B4DBC" />
-                        {/* <Image source={require('@/assets/images/icon.png')} style={{width: 50, height: 50}} resizeMode="contain" /> */}
                     </View>
                     <Text style={styles.title}>Lab Equipment</Text>
                     <Text style={styles.subtitle}>Student Portal</Text>
@@ -86,7 +97,7 @@ export default function LoginScreen() {
                         <Text style={styles.label}>Password</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="••••••••"
+                            placeholder="Type: 123456"
                             placeholderTextColor="#999"
                             value={password}
                             onChangeText={setPassword}
@@ -118,15 +129,13 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#5B4DBC' // Ungu Utama
+        backgroundColor: '#5B4DBC'
     },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
         padding: 25
     },
-
-    // Logo Styles
     logoContainer: {
         alignItems: 'center',
         marginBottom: 40
@@ -139,12 +148,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 15,
-        // Shadow effect
         elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
     },
     title: {
         fontSize: 28,
@@ -157,8 +161,6 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.8)',
         marginTop: 5
     },
-
-    // Form Styles
     formContainer: {
         width: '100%'
     },
@@ -181,29 +183,22 @@ const styles = StyleSheet.create({
         color: '#333',
         elevation: 2
     },
-
-    // Button Styles
     loginButton: {
-        backgroundColor: '#26C6DA', // Cyan/Tosca (Kontras Bagus dengan Ungu)
+        backgroundColor: '#26C6DA',
         paddingVertical: 16,
         borderRadius: 12,
         alignItems: 'center',
         marginTop: 10,
         elevation: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
     },
     buttonDisabled: {
-        backgroundColor: '#80DEEA' // Versi pudar dari cyan
+        backgroundColor: '#80DEEA'
     },
     loginText: {
         color: 'white',
         fontSize: 18,
         fontWeight: 'bold'
     },
-
-    // Footer
     footer: {
         marginTop: 30,
         alignItems: 'center'

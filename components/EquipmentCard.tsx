@@ -1,207 +1,106 @@
-// components/EquipmentCard.tsx
+import React from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
-import React from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { FontAwesome } from "@expo/vector-icons";
-import { Equipment, useCart } from "@/context/CartContext";
-import Toast from 'react-native-toast-message';
-
+// --- DEFINISI TIPE PROPS ---
+// Komponen ini menerima dua hal:
+// 1. data: Objek berisi detail barang (nama, gambar, stok, harga)
+// 2. onAdd: Sebuah fungsi yang akan dipanggil saat tombol ditekan
 interface EquipmentCardProps {
-    item: Equipment;
-    quantityInCart: number;
+    data: any;
+    onAdd: () => void; // <--- Wajib dikirim oleh Induk (EquipmentList)
 }
 
-const EquipmentCard: React.FC<EquipmentCardProps> = ({ item, quantityInCart }) => {
-    const { addToCart } = useCart();
-
-    // Hitung stok yang tersedia untuk ditampilkan
-    const displayAvailable = item.stock - quantityInCart;
-
-    const handleAddToCart = () => {
-        if (displayAvailable > 0) {
-            addToCart(item);
-            Toast.show({
-                type: 'success',
-                text1: 'Ditambahkan ke Keranjang',
-                text2: `${item.name} berhasil ditambahkan.`,
-                position: 'bottom',
-                visibilityTime: 2000,
-            });
-        } else {
-            Toast.show({
-                type: 'error',
-                text1: 'Stok Habis',
-                text2: `Stok untuk ${item.name} sudah tidak tersedia.`,
-                position: 'bottom'
-            });
-        }
-    };
+export default function EquipmentCard({ data, onAdd }: EquipmentCardProps) {
+    // --- LOGIKA SEDERHANA ---
+    // Membuat variabel boolean (true/false) untuk mengecek stok.
+    // Jika stok > 0, maka isAvailable = true.
+    const isAvailable = data.stock > 0;
 
     return (
         <View style={styles.card}>
-            {/* Badge Merah (Jika item ada di keranjang) */}
-            {quantityInCart > 0 && (
-                <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{quantityInCart}</Text>
-                </View>
-            )}
-
-            {/* Gambar Produk */}
+            {/* --- BAGIAN 1: GAMBAR BARANG --- */}
             <View style={styles.imageContainer}>
-                {item.image ? (
-                    <Image
-                        source={{ uri: item.image }}
-                        style={styles.image}
-                        resizeMode="contain"
-                    />
-                ) : (
-                    <View style={styles.imagePlaceholder}>
-                        <FontAwesome name="flask" size={40} color="#E0E0E0" />
-                    </View>
-                )}
+                {/* Logika Tampilan Bersyarat (Ternary Operator):
+                    Apakah data.image ada isinya?
+                    JIKA YA (?): Pakai gambar dari link tersebut.
+                    JIKA TIDAK (:): Pakai gambar placeholder (abu-abu) agar tidak error.
+                */}
+                <Image
+                    source={data.image ? { uri: data.image } : { uri: 'https://via.placeholder.com/150' }}
+                    style={styles.image}
+                />
             </View>
 
-            {/* Detail Produk */}
-            <View style={styles.details}>
-                {/* Judul Barang (Diperbesar) */}
-                <Text style={styles.title} numberOfLines={2}>{item.name}</Text>
+            {/* --- BAGIAN 2: INFORMASI TEXT --- */}
+            {/* numberOfLines={2} membatasi teks maksimal 2 baris.
+                Jika nama barang kepanjangan, nanti akan muncul titik-titik (...) */}
+            <Text style={styles.name} numberOfLines={2}>{data.name}</Text>
 
-                {/* Stok Info */}
-                <View style={styles.stockRow}>
-                    <Text style={styles.stockLabel}>Available:</Text>
-                    <Text style={[
-                        styles.stockValue,
-                        displayAvailable === 0 ? { color: '#FF5252' } : { color: '#5B4DBC' }
-                    ]}>
-                        {displayAvailable}
-                    </Text>
-                </View>
+            {/* Menampilkan sisa stok */}
+            <Text style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>Stock: {data.stock}</Text>
 
-                {/* Tombol Add (Diperbesar) */}
-                <TouchableOpacity
-                    style={[styles.button, displayAvailable <= 0 && styles.buttonDisabled]}
-                    onPress={handleAddToCart}
-                    disabled={displayAvailable <= 0}
-                >
-                    <Text style={styles.buttonText}>
-                        {displayAvailable > 0 ? 'Add to Cart' : 'Empty'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
+            {/* --- BAGIAN 3: TOMBOL ADD --- */}
+            <TouchableOpacity
+                // Style Dinamis:
+                // Jika tersedia (isAvailable true), warna biru (#26C6DA).
+                // Jika habis, warna abu-abu (#ccc).
+                style={[styles.addButton, { backgroundColor: isAvailable ? '#26C6DA' : '#ccc' }]}
+
+                // Aksi Klik:
+                // Panggil fungsi onAdd milik induk saat tombol ditekan.
+                onPress={onAdd}
+
+                // Properti disabled:
+                // Jika stok habis (!isAvailable), tombol dimatikan (tidak bisa diklik).
+                disabled={!isAvailable}
+            >
+                {/* Teks Tombol juga berubah sesuai status stok */}
+                <Text style={{ color: 'white', fontWeight: 'bold' }}>
+                    {isAvailable ? 'Add to Cart' : 'Habis'}
+                </Text>
+            </TouchableOpacity>
         </View>
     );
-};
+}
 
+// --- STYLING ---
 const styles = StyleSheet.create({
     card: {
-        width: '100%', // Mengisi penuh wrapper dari parent
+        flex: 1,
         backgroundColor: 'white',
-        borderRadius: 20, // Radius lebih besar biar lebih modern
-        padding: 15,      // Padding dalam lebih lega
-        // Shadow Modern & Lebih Deep
-        elevation: 4,
-        shadowColor: '#5B4DBC',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        position: 'relative',
-        alignItems: 'center',
-        // Margin dihapus agar diatur oleh EquipmentList parent
-    },
-    // Badge Merah
-    badge: {
-        position: 'absolute',
-        top: 10,
-        right: 10,
-        backgroundColor: '#FF5252',
-        minWidth: 24,
-        height: 24,
         borderRadius: 12,
-        justifyContent: 'center',
+        padding: 10,
+        margin: 5,
         alignItems: 'center',
-        zIndex: 10,
-        borderWidth: 2,
-        borderColor: 'white'
-    },
-    badgeText: {
-        color: 'white',
-        fontSize: 11,
-        fontWeight: 'bold'
+
+        // elevation: Memberikan efek bayangan (shadow) khusus di Android
+        elevation: 2
     },
     imageContainer: {
-        width: '100%',
-        height: 130, // Area gambar lebih tinggi
+        width: 80,
+        height: 80,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 10,
-        backgroundColor: '#FAFAFA', // Sedikit background biar gambar pop
-        borderRadius: 15
+        backgroundColor: '#f5f5f5', // Latar belakang abu muda di belakang gambar
+        borderRadius: 40 // Membuat lingkaran (setengah dari width/height)
     },
     image: {
-        width: 110, // Gambar lebih besar
-        height: 110,
+        width: 50,
+        height: 50,
+        resizeMode: 'contain' // Gambar dipaskan agar tidak terpotong (aspect ratio terjaga)
     },
-    imagePlaceholder: {
-        width: 100,
-        height: 100,
-        backgroundColor: '#F0F0F0',
-        borderRadius: 50,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    details: {
-        width: '100%',
-        alignItems: 'center'
-    },
-    title: {
-        fontSize: 16, // Font Judul Lebih Besar
-        fontWeight: '800', // Lebih Tebal
-        color: '#2D2D2D',
-        marginBottom: 8,
-        textAlign: 'center',
-        height: 44, // Tinggi area teks disesuaikan font baru
-        lineHeight: 22
-    },
-    stockRow: {
-        flexDirection: 'row',
-        marginBottom: 12,
-        alignItems: 'center',
-        backgroundColor: '#F3F0FF', // Background ungu sangat muda
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 8
-    },
-    stockLabel: {
-        fontSize: 12,
-        color: '#666',
-        marginRight: 6
-    },
-    stockValue: {
+    name: {
         fontSize: 14,
         fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 5,
+        height: 40 // Tinggi dipatok tetap agar kartu sejajar walau teks pendek/panjang
     },
-    button: {
-        backgroundColor: '#26C6DA',
-        paddingVertical: 12, // Tombol lebih tinggi/tebal
+    addButton: {
         width: '100%',
-        borderRadius: 12,
-        alignItems: 'center',
-        shadowColor: "#26C6DA",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        elevation: 2
-    },
-    buttonDisabled: {
-        backgroundColor: '#E0E0E0',
-        elevation: 0,
-        shadowOpacity: 0
-    },
-    buttonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 14, // Teks tombol lebih besar
-    },
+        paddingVertical: 8,
+        borderRadius: 8,
+        alignItems: 'center'
+    }
 });
-
-export default EquipmentCard;

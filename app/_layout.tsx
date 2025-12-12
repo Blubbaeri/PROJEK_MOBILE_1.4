@@ -1,21 +1,14 @@
-// file: src/app/_layout.tsx 
-
-import { AuthProvider, useAuth } from '@/context/AuthContext';
-import { CartProvider } from '@/context/CartContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import { CartProvider } from '../context/CartContext';
 import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
 import { Slot, useRouter, useSegments, Href } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, View, StatusBar } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-// Tema untuk React Native Paper (Opsional, biar konsisten)
 const theme = {
     ...DefaultTheme,
-    colors: {
-        ...DefaultTheme.colors,
-        primary: '#5B4DBC', // Ungu Utama
-        secondary: '#26C6DA', // Tosca
-    },
+    colors: { ...DefaultTheme.colors, primary: '#5B4DBC', secondary: '#26C6DA' },
 };
 
 const InitialLayout = () => {
@@ -25,19 +18,22 @@ const InitialLayout = () => {
 
     useEffect(() => {
         if (isLoading) return;
-        const inTabsGroup = segments[0] === '(tabs)';
 
-        if (session && !inTabsGroup) {
-            // Arahkan ke (tabs) karena struktur folder kamu pakai (tabs)
+        // Cek user sedang di halaman mana
+        const inAuthGroup = segments[0] === 'login' || segments[0] === 'register';
+
+        if (session && inAuthGroup) {
+            // KALAU SUDAH LOGIN: Tendang ke halaman Utama (Tabs)
             router.replace('/(tabs)' as Href);
-        } else if (!session && inTabsGroup) {
-            router.replace('/login' as Href);
+        } else if (!session && !inAuthGroup) {
+            // KALAU BELUM LOGIN: Tendang balik ke Login
+            router.replace('/login' as Href); // Pastikan nama file login kamu 'login.tsx'
         }
     }, [session, isLoading, segments, router]);
 
     if (isLoading) {
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F7' }}>
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#5B4DBC" />
             </View>
         );
@@ -51,9 +47,7 @@ export default function RootLayout() {
         <AuthProvider>
             <CartProvider>
                 <PaperProvider theme={theme}>
-                    {/* Status Bar Global: Tulisan Putih, Background Ungu */}
                     <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-
                     <InitialLayout />
                     <Toast />
                 </PaperProvider>
