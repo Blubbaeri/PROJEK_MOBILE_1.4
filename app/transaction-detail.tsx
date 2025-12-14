@@ -64,7 +64,7 @@ export default function TransactionDetailScreen() {
                             <FontAwesome5 name="box" size={20} color="#5B4DBC" style={{ marginRight: 15 }} />
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.itemName}>{item.equipmentName}</Text>
-                                <Text style={styles.itemQty}>Jumlah: {item.quantity} • Kondisi: {item.condition || 'Baik'}</Text>
+                                <Text style={styles.itemQty}>Jumlah: {item.quantity} ï¿½ Kondisi: {item.condition || 'Baik'}</Text>
                             </View>
                         </View>
                     ))

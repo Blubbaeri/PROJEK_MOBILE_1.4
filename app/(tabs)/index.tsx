@@ -12,7 +12,7 @@ import EquipmentList from '../../components/EquipmentList';
 
 // --- KONFIGURASI SERVER ---
 // IP Address dipisahkan ke variabel agar mudah diganti jika pindah jaringan Wi-Fi.
-const IP_ADDRESS = "172.20.10.2";
+const IP_ADDRESS = "192.168.100.2";
 const PORT = "5234";
 const API_URL = `http://${IP_ADDRESS}:${PORT}/api/equipment`;
 
