@@ -1,4 +1,5 @@
-// file: app/success.tsx
+//app/(tabs)/success.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';

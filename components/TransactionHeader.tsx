@@ -1,3 +1,5 @@
+//components/transactionHeader.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';

@@ -1,3 +1,5 @@
+//components/cartList.tsx
+
 import React from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';

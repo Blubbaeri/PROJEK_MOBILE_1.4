@@ -1,112 +1,191 @@
+//app/(tabs)/cart.tsx
+
 import React, { useState } from 'react';
 import { View, StyleSheet, StatusBar, Alert } from 'react-native';
-import { useRouter } from 'expo-router'; // Hook untuk navigasi pindah halaman
-
-// --- IMPORT CONTEXT ---
-// Kita mengimpor custom hook 'useCart' untuk mengakses data keranjang belanja
-// yang tersimpan secara Global (bisa diakses dari mana saja).
+import { useRouter } from 'expo-router';
 import { useCart } from '../../context/CartContext';
-
-// --- IMPORT KOMPONEN TAMPILAN ---
-// Memisahkan Header dan List agar kodingan utama tetap bersih
 import CartHeader from '../../components/CartHeader';
 import CartList from '../../components/CartList';
 
-export default function CartScreen() {
-    // Inisialisasi router untuk bisa pindah halaman
-    const router = useRouter();
+const IP_ADDRESS = "192.168.100.4";
+//const IP_ADDRESS = "10.1.6.125";
+const PORT = "5234";
+const API_URL = `http://${IP_ADDRESS}:${PORT}/api/borrowing`;
 
-    // --- 1. MENGAMBIL DATA DARI GLOBAL STATE (CONTEXT) ---
-    // Di sini kita tidak pakai 'useState' lokal untuk list barang,
-    // tapi mengambilnya dari Context. Jadi kalau di Home nambah barang, di sini otomatis muncul.
+// Helper function untuk handle unknown error
+const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    return 'Unknown error occurred';
+};
+
+export default function CartScreen() {
+    const router = useRouter();
     const {
-        cartItems,        // Array daftar barang yang dipilih
-        totalItems,       // Jumlah total item (misal: 5)
-        removeFromCart,   // Fungsi hapus barang
-        increaseQuantity, // Fungsi tambah jumlah
-        decreaseQuantity, // Fungsi kurang jumlah
-        clearCart         // Fungsi kosongkan keranjang
+        cartItems,
+        totalItems,
+        removeFromCart,
+        increaseQuantity,
+        decreaseQuantity,
+        clearCart
     } = useCart();
 
-    // State lokal hanya untuk loading saat proses checkout
     const [isBooking, setIsBooking] = useState(false);
 
-    // --- 2. LOGIKA NAVIGASI ---
-
-    // Fungsi untuk kembali ke halaman Home (Tabs) jika user ingin belanja lagi
     const handleBrowse = () => router.push('/(tabs)');
 
-    // Fungsi saat tombol Checkout ditekan
     const handleCheckout = () => {
-        // Tampilkan peringatan (Alert) konfirmasi sebelum memproses
         Alert.alert(
-            "Konfirmasi Checkout", // Judul Alert
-            `Pinjam ${totalItems} alat ini sekarang?`, // Pesan
+            "Konfirmasi Checkout",
+            `Pinjam ${totalItems} alat ini sekarang?`,
             [
-                { text: "Nanti Dulu", style: "cancel" }, // Tombol Batal
-                { text: "Gas, Pinjam!", onPress: processCheckout } // Tombol Lanjut -> Panggil processCheckout
+                { text: "Nanti Dulu", style: "cancel" },
+                { text: "Gas, Pinjam!", onPress: processCheckout }
             ]
         );
     };
 
-    // Fungsi Inti Pemrosesan Booking
-    const processCheckout = () => {
-        setIsBooking(true); // Nyalakan loading spinner
+    // ===== FUNGSI CHECKOUT UTAMA =====
+    const processCheckout = async () => {
+        setIsBooking(true);
 
-        // setTimeout digunakan untuk mensimulasikan jeda request ke server (1 detik)
-        // Nanti aslinya di sini diganti dengan 'axios.post(...)' ke backend.
-        setTimeout(() => {
+        // Setup timeout dengan AbortController
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-            // Membuat data dummy booking untuk dikirim ke halaman QR Code
-            const bookingData = {
-                id: "BOOK-" + Math.floor(Math.random() * 9999), // ID Booking Acak
-                studentId: "MHS-USER",
-                qrCode: "QR-" + Date.now(), // Generate kode unik berdasarkan waktu
-                status: "pending",
-                // Mapping data cart agar strukturnya sesuai kebutuhan backend/halaman selanjutnya
+        try {
+            // 1. Validasi cart tidak kosong
+            if (cartItems.length === 0) {
+                throw new Error('Keranjang kosong');
+            }
+
+            // 2. Format data untuk backend
+            const borrowingData = {
+                mhsId: 1, // ⚠️ Hardcode dulu, nanti ganti dengan user login
                 items: cartItems.map(item => ({
                     equipmentId: item.id,
-                    equipmentName: item.name,
-                    quantity: item.quantity,
-                    image: item.image
+                    quantity: item.quantity
                 })),
-                timestamp: new Date().toISOString()
+                status: "Booked"
             };
 
-            setIsBooking(false); // Matikan loading
+            console.log('Mengirim data:', borrowingData);
 
-            clearCart(); // Kosongkan keranjang belanja karena transaksi sudah diproses
+            // 3. POST ke API menggunakan fetch dengan timeout
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(borrowingData),
+                signal: controller.signal // Untuk timeout handling
+            });
 
-            // Pindah ke halaman 'booking-qr' sambil membawa data 'bookingData'
-            // Data dikirim lewat 'params' agar bisa dibaca di halaman tujuan.
+            clearTimeout(timeoutId); // Clear timeout jika sukses
+
+            // 4. Cek jika response OK
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error ${response.status}: ${errorText}`);
+            }
+
+            // 5. Parse response JSON
+            const result = await response.json();
+            console.log('Response dari server:', result);
+
+            // 6. ✅ PERBAIKAN PENTING: Backend tidak kirim field "success"
+            // Format backend: { data: {...}, message: "..." }
+            // BUKAN: { success: true, data: {...}, message: "..." }
+            if (!result.data) {
+                // Jika tidak ada data, tapi ada message success, anggap success
+                if (result.message && result.message.includes("success")) {
+                    console.log("Success berdasarkan message:", result.message);
+                    // Lanjutkan tanpa data (optional)
+                } else {
+                    throw new Error(result.message || 'Invalid response from server');
+                }
+            }
+
+            // 7. Navigasi ke QR dengan data REAL dari backend
             router.push({
                 pathname: '/(tabs)/booking-qr',
-                params: { data: JSON.stringify(bookingData) } // Data objek diubah jadi String dulu
+                params: {
+                    data: JSON.stringify({
+                        id: result.data?.id || Date.now(), // gunakan data.id jika ada
+                        studentId: borrowingData.mhsId,
+                        qrCode: result.data?.qrCode || `QR-${Date.now()}`,
+                        status: result.data?.status || "Booked",
+                        items: cartItems.map(item => ({
+                            equipmentId: item.id,
+                            equipmentName: item.name,
+                            quantity: item.quantity,
+                            image: item.image
+                        })),
+                        qrExpiry: result.data?.qrExpiry || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                        timestamp: new Date().toISOString()
+                    })
+                }
             });
-        }, 1000);
+
+        } catch (error: any) {
+            clearTimeout(timeoutId); // Clear timeout jika error
+
+            console.error("Checkout error:", error);
+
+            // Handle error dengan helper function
+            const errorMessage = getErrorMessage(error);
+
+            // Special handling untuk timeout/AbortError
+            if (error.name === 'AbortError' || errorMessage.includes('timeout')) {
+                Alert.alert(
+                    "Timeout",
+                    "Request timeout. Coba lagi atau periksa koneksi internet."
+                );
+            }
+            // 🚨 PERBAIKAN: Jika error message adalah "Borrowing created successfully"
+            else if (errorMessage.includes('Borrowing created successfully')) {
+                console.log('✅ Backend success, but frontend parsed as error');
+
+                // Try to extract data from error message if possible
+                Alert.alert(
+                    "Booking Berhasil!",
+                    "Peminjaman berhasil dibuat. Silakan cek halaman transaksi.",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                // Navigate to transactions page
+                                router.push('/(tabs)/transaction');
+                            }
+                        }
+                    ]
+                );
+            }
+            else {
+                Alert.alert("Gagal Checkout", errorMessage);
+            }
+        } finally {
+            setIsBooking(false);
+            clearCart(); // Kosongkan keranjang setelah proses selesai
+        }
     };
 
-    // --- 3. TAMPILAN UI ---
+    // ===== RENDER =====
     return (
         <View style={styles.container}>
-            {/* Status Bar disesuaikan warnanya dengan background header */}
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
-            {/* HEADER: Menampilkan Judul dan Tombol Hapus Semua */}
             <CartHeader
                 totalItems={totalItems}
-                onClearCart={clearCart} // Mengirim fungsi clearCart ke tombol tong sampah di header
+                onClearCart={clearCart}
             />
 
-            {/* BODY: Menampilkan Daftar Barang */}
             <View style={styles.bodyContainer}>
                 <CartList
-                    cart={cartItems}         // Data barang
-                    totalItems={totalItems}  // Info jumlah total
-                    isBooking={isBooking}    // Info status loading checkout
-
-                    // Mengirim fungsi-fungsi interaksi ke komponen anak (CartList)
-                    // agar tombol tambah/kurang di setiap kartu barang bisa berfungsi
+                    cart={cartItems}
+                    totalItems={totalItems}
+                    isBooking={isBooking}
                     onRemove={removeFromCart}
                     onIncrease={increaseQuantity}
                     onDecrease={decreaseQuantity}
@@ -118,14 +197,13 @@ export default function CartScreen() {
     );
 }
 
-// --- STYLING ---
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#5B4DBC' }, // Background Ungu (Header)
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
     bodyContainer: {
         flex: 1,
-        backgroundColor: '#F5F5F7', // Background Abu-abu muda (List)
-        borderTopLeftRadius: 30,    // Membuat lengkungan di pojok kiri atas
-        borderTopRightRadius: 30,   // Membuat lengkungan di pojok kanan atas
-        overflow: 'hidden'          // Memastikan isi list tidak menembus lengkungan
+        backgroundColor: '#F5F5F7',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden'
     }
 });

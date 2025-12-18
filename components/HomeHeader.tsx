@@ -1,3 +1,5 @@
+//components/homeHeader.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons'; // Library ikon vektor
@@ -12,7 +14,7 @@ type HomeHeaderProps = {
     selectedCategory: string | null;        // Kategori yang sedang aktif (null = All)
     setSelectedCategory: (category: string | null) => void; // Fungsi saat kategori diklik
 };
-
+a
 const HomeHeader = ({
     searchQuery,
     setSearchQuery,

@@ -1,3 +1,5 @@
+//components/transactionList.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';

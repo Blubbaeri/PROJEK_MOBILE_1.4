@@ -1,4 +1,5 @@
 //data/equipmentData.ts
+//udah ga kepake udah make database
 
 export interface Equipment {
   id : string;

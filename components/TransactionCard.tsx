@@ -1,10 +1,13 @@
+//components/transactionCard.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-// --- TYPES (Supaya tidak error di file lain) ---
-export type TransactionStatus = 'pending' | 'BOOKING' | 'SEDANG_DIPINJAM' | 'SELESAI' | 'DITOLAK' | 'DIBATALKAN';
+// --- TYPES (UBAH DISINI SAJA) ---
+// Ganti dengan status Indonesia yang fix
+export type TransactionStatus = 'Booked'|'Diproses' | 'Dipinjam' | 'Ditolak' | 'Dikembalikan' | 'Selesai';
 
 export type TransactionItem = {
     equipmentName: string;
@@ -25,17 +28,22 @@ export type Transaction = {
 const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
     const router = useRouter();
 
+    // --- UBAH DISINI: Mapping status Indonesia ---
     const statusStyles: any = {
-        pending: { color: '#FFA000', backgroundColor: '#FFF8E1', label: 'Pending' },
-        BOOKING: { color: '#FFA000', backgroundColor: '#FFF8E1', label: 'Booked' },
-        SEDANG_DIPINJAM: { color: '#2979FF', backgroundColor: '#E3F2FD', label: 'Active' },
-        SELESAI: { color: '#4CAF50', backgroundColor: '#E8F5E9', label: 'Returned' },
-        DITOLAK: { color: '#F44336', backgroundColor: '#FFEBEE', label: 'Rejected' },
-        DIBATALKAN: { color: '#9E9E9E', backgroundColor: '#F5F5F5', label: 'Cancelled' }
+        // Status untuk Tab "Peminjaman" (Borrowing)
+        Diproses: { color: '#FFA000', backgroundColor: '#FFF8E1', label: 'Diproses' },
+        Dipinjam: { color: '#2979FF', backgroundColor: '#E3F2FD', label: 'Dipinjam' },
+        Booked: { color: '#FF9800', backgroundColor: '#FFF4E5', label: 'Booked' },
+
+        // Status untuk Tab "Pengembalian" (Returned)
+        Dikembalikan: { color: '#4CAF50', backgroundColor: '#E8F5E9', label: 'Dikembalikan' },
+        Selesai: { color: '#4CAF50', backgroundColor: '#E8F5E9', label: 'Selesai' },
+        Ditolak: { color: '#F44336', backgroundColor: '#FFEBEE', label: 'Ditolak' }
     };
 
-    const safeStatus = transaction.status || 'DIBATALKAN';
-    const currentStatusStyle = statusStyles[safeStatus] || statusStyles.DIBATALKAN;
+    // Default ke 'Diproses' jika tidak ada status
+    const safeStatus = transaction.status || 'Diproses';
+    const currentStatusStyle = statusStyles[safeStatus] || statusStyles.Diproses;
 
     const displayDate = transaction.borrowedAt || new Date().toISOString();
     const formatDate = (dateString?: string | null) =>
@@ -43,23 +51,21 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
             day: 'numeric', month: 'short', year: 'numeric'
         }) : '-';
 
-    // Menampilkan preview barang (maksimal 2 nama)
+    // Menampilkan preview barang (maksimal 2 nama) - TIDAK DIUBAH
     const renderItems = (items: TransactionItem[]) => {
-        if (!items || items.length === 0) return "No items details";
+        if (!items || items.length === 0) return "Tidak ada detail barang";
         const preview = items.slice(0, 2).map(item => `${item.equipmentName} (${item.quantity})`).join(', ');
-        return items.length > 2 ? `${preview}, +${items.length - 2} more` : preview;
+        return items.length > 2 ? `${preview}, +${items.length - 2} lagi` : preview;
     };
 
-    // --- LOGIKA UTAMA: PINDAH KE DETAIL ---
+    // --- LOGIKA UTAMA: PINDAH KE DETAIL - TIDAK DIUBAH ---
     const handlePressCard = () => {
         router.push({
             pathname: '/transaction-detail',
             params: {
                 id: transaction.id,
                 status: safeStatus,
-                // Kita kirim QR Code juga biar nanti bisa dipake di halaman Return
                 qrCode: transaction.qrCode,
-                // Kirim data item sebagai string JSON
                 items: JSON.stringify(transaction.items)
             }
         });
@@ -67,7 +73,7 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
 
     return (
         <TouchableOpacity style={styles.card} onPress={handlePressCard} activeOpacity={0.7}>
-            {/* Header: Icon, ID, Status */}
+            {/* Header: Icon, ID, Status - TIDAK DIUBAH STRUKTUR */}
             <View style={styles.cardHeader}>
                 <View style={styles.iconContainer}>
                     <FontAwesome name="exchange" size={18} color="#5B4DBC" />
@@ -83,7 +89,7 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
                 </View>
             </View>
 
-            {/* Footer: Tanggal & Label QR */}
+            {/* Footer: Tanggal & Label QR - TIDAK DIUBAH */}
             <View style={styles.cardFooter}>
                 <View style={styles.dateContainer}>
                     <FontAwesome name="calendar" size={12} color="#888" style={{ marginRight: 5 }} />
@@ -95,6 +101,7 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
     );
 };
 
+// --- STYLES - TIDAK DIUBAH ---
 const styles = StyleSheet.create({
     card: {
         backgroundColor: 'white', borderRadius: 16, padding: 16, marginBottom: 12,

@@ -1,5 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAreaView, Platform } from 'react-native';
+// app/(tabs)/booking-qr.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
+    StatusBar, SafeAreaView, Platform, Alert
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -8,19 +12,153 @@ import BookingStatus from '../../components/BookingStatus';
 import QrCodeDisplay from '../../components/QrCodeDisplay';
 import BookingItemList from '../../components/BookingItemList';
 
+// ⭐ DEFINE INTERFACE
+interface BorrowingData {
+    id: number;
+    qrCode: string;
+    status: string;
+    items?: any[];
+    mhsId?: number;
+    borrowedAt?: string;
+}
+
 export default function BookingQr() {
     const router = useRouter();
     const { data } = useLocalSearchParams();
 
-    // Parsing Data dengan Safety
-    let borrowingData = null;
-    if (data) {
-        try { borrowingData = JSON.parse(data as string); } catch (e) { console.error("Parse Error", e); }
-    }
+    // ⭐ STATE
+    const [borrowingData, setBorrowingData] = useState<BorrowingData | null>(null);
+    const [isPolling, setIsPolling] = useState(false);
+    const pollingRef = useRef<number | null>(null);
+
+    // ⭐ GUNAKAN REF UNTUK STATE YANG DIPAKAI DI INTERVAL
+    const borrowingDataRef = useRef<BorrowingData | null>(null);
+
+    // ⭐ UPDATE REF SETIAP STATE BERUBAH
+    useEffect(() => {
+        borrowingDataRef.current = borrowingData;
+    }, [borrowingData]);
+
+    // ⭐ API URL
+    //const API_BASE = "http://10.1.6.125:5234";
+    const API_BASE = "http://192.168.100.4:5234";
+
+    // ⭐ STOP POLLING - PAKAI useCallback
+    const stopStatusPolling = useCallback(() => {
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+            pollingRef.current = null;
+        }
+        setIsPolling(false);
+        console.log("🛑 Polling stopped");
+    }, []);
+
+    // ⭐ FUNGSI POLLING - PAKAI useCallback
+    const startStatusPolling = useCallback((borrowingId: number) => {
+        console.log(`🚀 Start polling for ID: ${borrowingId}`);
+        setIsPolling(true);
+
+        // Clear existing interval
+        if (pollingRef.current) {
+            clearInterval(pollingRef.current);
+        }
+
+        pollingRef.current = setInterval(async () => {
+            try {
+                console.log(`🔄 Polling status for ID: ${borrowingId}`);
+                const response = await fetch(`${API_BASE}/api/borrowing/${borrowingId}`);
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                const result = await response.json();
+
+                // ⭐ GUNAKAN REF, BUKAN STATE LANGSUNG
+                const currentStatus = borrowingDataRef.current?.status;
+
+                if (result.data && result.data.status !== currentStatus) {
+                    // ⭐ STATUS BERUBAH!
+                    console.log(`✅ Status changed: ${currentStatus} → ${result.data.status}`);
+
+                    setBorrowingData(prev => {
+                        if (!prev) return prev;
+                        return {
+                            ...prev,
+                            status: result.data.status
+                        };
+                    });
+
+                    // ⭐ TAMPILKAN NOTIFIKASI
+                    if (result.data.status === "Diproses") {
+                        Alert.alert(
+                            "✅ Status Diperbarui",
+                            "Booking Anda sedang diproses oleh admin.\nSilakan tunggu approval.",
+                            [{ text: "OK" }]
+                        );
+                    }
+
+                    // ⭐ JIKA SUDAH BUKAN "Booked", STOP POLLING
+                    if (result.data.status !== "Booked") {
+                        stopStatusPolling();
+                    }
+                }
+            } catch (error) {
+                console.error("❌ Polling error:", error);
+            }
+        }, 2000); // ⭐ PERCEPAT JADI 2 DETIK
+    }, [stopStatusPolling]);
+
+    // Parsing Data Awal
+    useEffect(() => {
+        if (data) {
+            try {
+                const parsed = JSON.parse(data as string) as BorrowingData;
+                setBorrowingData(parsed);
+
+                // ⭐ JIKA STATUS MASIH "Booked", START POLLING
+                if (parsed.status === "Booked" && parsed.id) {
+                    startStatusPolling(parsed.id);
+                }
+            } catch (e) {
+                console.error("Parse Error", e);
+                Alert.alert("Error", "Data tidak valid");
+            }
+        }
+    }, [data, startStatusPolling]);
+
+    // ⭐ CLEANUP SAAT KOMPONEN UNMOUNT
+    useEffect(() => {
+        return () => {
+            stopStatusPolling();
+        };
+    }, [stopStatusPolling]);
 
     const handleBack = () => {
-        // Karena transaksi selesai, lebih baik balik ke Home atau Transaction History
+        stopStatusPolling();
         router.replace('/(tabs)');
+    };
+
+    // ⭐ REFRESH STATUS MANUAL
+    const refreshStatus = async () => {
+        if (!borrowingData?.id) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/borrowing/${borrowingData.id}`);
+            const result = await response.json();
+
+            if (result.data) {
+                setBorrowingData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        status: result.data.status
+                    };
+                });
+
+                Alert.alert("Status Diperbarui", `Status saat ini: ${result.data.status}`);
+            }
+        } catch (error) {
+            Alert.alert("Error", "Gagal memperbarui status");
+        }
     };
 
     if (!borrowingData) {
@@ -35,26 +173,7 @@ export default function BookingQr() {
         );
     }
 
-    // --- OPTIMASI QR CODE BIAR GAMPANG DISCAN DESKTOP ---
-
-    // 1. Saring data items. Ambil ID dan Quantity aja.
-    // Hapus 'image', 'description', dll biar QR ga padet.
-    const cleanItems = borrowingData.items.map((item: any) => ({
-        id: item.equipmentId || item.id, // ID Barang
-        qty: item.quantity               // Jumlah
-    }));
-
-    // 2. Bungkus jadi JSON seringkas mungkin
-    const qrPayload = JSON.stringify({
-        // Kirim ID Transaksi (Penting buat Admin cek di DB)
-        trxId: borrowingData.id,
-
-        // Kirim NIM Mahasiswa
-        nim: borrowingData.studentId,
-
-        // Kirim List Barang (Versi Ringkas)
-        items: cleanItems
-    });
+    const qrPayload = borrowingData.qrCode;
 
     return (
         <View style={styles.mainContainer}>
@@ -68,28 +187,37 @@ export default function BookingQr() {
                             <Ionicons name="close" size={24} color="white" />
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>E-Ticket</Text>
-                        <View style={{ width: 24 }} />
+
+                        {/* ⭐ TAMBAH REFRESH BUTTON */}
+                        <TouchableOpacity onPress={refreshStatus} style={styles.refreshButton}>
+                            <Ionicons name="refresh" size={20} color="white" />
+                        </TouchableOpacity>
                     </View>
                 </SafeAreaView>
             </View>
 
-            {/* BODY SCROLL */}
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
                 {/* 1. Status */}
                 <BookingStatus status={borrowingData.status} />
 
-                {/* 2. QR Code (Membawa Data Items) */}
-                <QrCodeDisplay qrValue={qrPayload} readableCode={borrowingData.qrCode || borrowingData.id} />
+                {/* ⭐ POLLING INDICATOR */}
+                {isPolling && (
+                    <View style={styles.pollingIndicator}>
+                        <Ionicons name="sync" size={16} color="#5B4DBC" style={{ marginRight: 5 }} />
+                        <Text style={styles.pollingText}>Memantau perubahan status...</Text>
+                    </View>
+                )}
+
+                {/* 2. QR Code */}
+                <QrCodeDisplay qrValue={qrPayload} readableCode={borrowingData.qrCode || String(borrowingData.id)} />
 
                 {/* 3. List Barang */}
-                <BookingItemList items={borrowingData.items} />
+                {borrowingData.items && <BookingItemList items={borrowingData.items} />}
 
                 {/* Tombol Selesai */}
                 <TouchableOpacity style={styles.doneButton} onPress={handleBack}>
                     <Text style={styles.doneButtonText}>Selesai & Kembali</Text>
                 </TouchableOpacity>
-
             </ScrollView>
         </View>
     );
@@ -112,8 +240,25 @@ const styles = StyleSheet.create({
     },
     headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
     backButton: { padding: 5, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
+    refreshButton: { padding: 5 },
 
     scrollContent: { padding: 20, paddingBottom: 50 },
+
+    // ⭐ POLLING STYLES
+    pollingIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#E8EAF6',
+        padding: 10,
+        borderRadius: 10,
+        marginBottom: 15,
+    },
+    pollingText: {
+        fontSize: 12,
+        color: '#5B4DBC',
+        fontWeight: '500',
+    },
 
     doneButton: {
         marginTop: 25,

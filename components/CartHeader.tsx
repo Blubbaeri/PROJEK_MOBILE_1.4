@@ -1,3 +1,5 @@
+//components/cartHeader.tsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
