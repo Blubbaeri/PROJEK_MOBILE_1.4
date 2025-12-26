@@ -10,9 +10,8 @@ import Toast from 'react-native-toast-message';
 import HomeHeader from '../../components/HomeHeader';
 import EquipmentList from '../../components/EquipmentList';
 
-const IP_ADDRESS = "192.168.100.4";
-//const IP_ADDRESS = "10.1.6.125";
-//const PORT = "5234";
+//const IP_ADDRESS = "192.168.100.4";
+const IP_ADDRESS = "10.1.6.125";
 const PORT = "5234";
 const API_URL = `http://${IP_ADDRESS}:${PORT}/api/equipment`;
 

@@ -39,9 +39,9 @@ export default function BookingQr() {
         borrowingDataRef.current = borrowingData;
     }, [borrowingData]);
 
-    // ⭐ API URL
-    //const API_BASE = "http://10.1.6.125:5234";
-    const API_BASE = "http://192.168.100.4:5234";
+    // API URL
+    const API_BASE = "http://10.1.6.125:5234";
+    //const API_BASE = "http://192.168.100.4:5234";
 
     // ⭐ STOP POLLING - PAKAI useCallback
     const stopStatusPolling = useCallback(() => {

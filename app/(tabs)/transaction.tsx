@@ -13,8 +13,8 @@
     import { Transaction, TransactionStatus } from '../../components/TransactionCard';
 
     // --- KONFIGURASI SERVER ---
-    const IP_ADDRESS = "192.168.100.4";
-    //const IP_ADDRESS = "10.1.6.125";
+    //const IP_ADDRESS = "192.168.100.4";
+    const IP_ADDRESS = "10.1.6.125";
     const PORT = "5234";
     const API_URL = `http://${IP_ADDRESS}:${PORT}/api/borrowing/user/1`;
 

@@ -14,7 +14,7 @@ type HomeHeaderProps = {
     selectedCategory: string | null;        // Kategori yang sedang aktif (null = All)
     setSelectedCategory: (category: string | null) => void; // Fungsi saat kategori diklik
 };
-a
+
 const HomeHeader = ({
     searchQuery,
     setSearchQuery,
