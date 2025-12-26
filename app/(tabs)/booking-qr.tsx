@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, SafeAr
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-// Import komponen modular
 import BookingStatus from '../../components/BookingStatus';
 import QrCodeDisplay from '../../components/QrCodeDisplay';
 import BookingItemList from '../../components/BookingItemList';
@@ -12,84 +11,60 @@ export default function BookingQr() {
     const router = useRouter();
     const { data } = useLocalSearchParams();
 
-    // Parsing Data dengan Safety
     let borrowingData = null;
-    if (data) {
-        try { borrowingData = JSON.parse(data as string); } catch (e) { console.error("Parse Error", e); }
-    }
-
-    const handleBack = () => {
-        // Karena transaksi selesai, lebih baik balik ke Home atau Transaction History
-        router.replace('/(tabs)');
-    };
+    try {
+        if (data) borrowingData = JSON.parse(data as string);
+    } catch (e) { console.error(e); }
 
     if (!borrowingData) {
         return (
             <View style={styles.center}>
                 <Ionicons name="alert-circle-outline" size={50} color="#FF5252" />
-                <Text style={{ marginTop: 10, color: '#555' }}>Data Booking Tidak Ditemukan</Text>
-                <TouchableOpacity onPress={handleBack} style={{ marginTop: 20 }}>
-                    <Text style={{ color: '#5B4DBC', fontWeight: 'bold' }}>Kembali ke Home</Text>
-                </TouchableOpacity>
+                <Text>Data Tidak Ditemukan</Text>
+                <TouchableOpacity onPress={() => router.back()}><Text>Kembali</Text></TouchableOpacity>
             </View>
         );
     }
 
-    // --- OPTIMASI QR CODE BIAR GAMPANG DISCAN DESKTOP ---
+    const isReturn = borrowingData.isReturn === true;
+    const displayId = borrowingData.id || borrowingData.Id; // Menangani camelCase atau PascalCase
 
-    // 1. Saring data items. Ambil ID dan Quantity aja.
-    // Hapus 'image', 'description', dll biar QR ga padet.
-    const cleanItems = borrowingData.items.map((item: any) => ({
-        id: item.equipmentId || item.id, // ID Barang
-        qty: item.quantity               // Jumlah
-    }));
-
-    // 2. Bungkus jadi JSON seringkas mungkin
     const qrPayload = JSON.stringify({
-        // Kirim ID Transaksi (Penting buat Admin cek di DB)
-        trxId: borrowingData.id,
-
-        // Kirim NIM Mahasiswa
-        nim: borrowingData.studentId,
-
-        // Kirim List Barang (Versi Ringkas)
-        items: cleanItems
+        trxId: displayId,
+        action: isReturn ? 'RETURN' : 'BORROW',
+        items: borrowingData.items?.map((item: any) => ({
+            id: item.equipmentId || item.PsaId,
+            qty: item.quantity || 1
+        }))
     });
 
     return (
         <View style={styles.mainContainer}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-
-            {/* HEADER */}
             <View style={styles.header}>
-                <SafeAreaView>
-                    <View style={styles.headerContent}>
-                        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                            <Ionicons name="close" size={24} color="white" />
-                        </TouchableOpacity>
-                        <Text style={styles.headerTitle}>E-Ticket</Text>
-                        <View style={{ width: 24 }} />
-                    </View>
-                </SafeAreaView>
+                <SafeAreaView><View style={styles.headerContent}>
+                    <TouchableOpacity onPress={() => router.replace('/(tabs)/transaction')}><Ionicons name="close" size={24} color="white" /></TouchableOpacity>
+                    <Text style={{ color: 'white', fontWeight: 'bold' }}>{isReturn ? 'E-Ticket Pengembalian' : 'E-Ticket Peminjaman'}</Text>
+                    <View style={{ width: 24 }} />
+                </View></SafeAreaView>
             </View>
 
-            {/* BODY SCROLL */}
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ padding: 20 }}>
+                <BookingStatus status={isReturn ? "PROSES KEMBALI" : (borrowingData.status || "PENDING")} />
+                <View style={styles.infoBox}>
+                    <Text style={{ color: '#1976D2', textAlign: 'center' }}>
+                        Tunjukkan QR ini ke petugas lab untuk proses {isReturn ? 'pengembalian' : 'peminjaman'}.
+                    </Text>
+                </View>
 
-                {/* 1. Status */}
-                <BookingStatus status={borrowingData.status} />
+                <QrCodeDisplay qrValue={qrPayload} readableCode={`TRX-${displayId}`} />
 
-                {/* 2. QR Code (Membawa Data Items) */}
-                <QrCodeDisplay qrValue={qrPayload} readableCode={borrowingData.qrCode || borrowingData.id} />
-
-                {/* 3. List Barang */}
+                <Text style={{ fontWeight: 'bold', marginTop: 20, marginBottom: 10 }}>Rincian Barang:</Text>
                 <BookingItemList items={borrowingData.items} />
 
-                {/* Tombol Selesai */}
-                <TouchableOpacity style={styles.doneButton} onPress={handleBack}>
-                    <Text style={styles.doneButtonText}>Selesai & Kembali</Text>
+                <TouchableOpacity style={styles.btn} onPress={() => router.replace('/(tabs)/transaction')}>
+                    <Text style={{ color: 'white', fontWeight: 'bold' }}>Selesai</Text>
                 </TouchableOpacity>
-
             </ScrollView>
         </View>
     );
@@ -98,29 +73,8 @@ export default function BookingQr() {
 const styles = StyleSheet.create({
     mainContainer: { flex: 1, backgroundColor: '#F5F5F7' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-    header: {
-        backgroundColor: '#5B4DBC',
-        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 0,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        elevation: 5, zIndex: 10,
-    },
-    headerContent: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingVertical: 15,
-    },
-    headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-    backButton: { padding: 5, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
-
-    scrollContent: { padding: 20, paddingBottom: 50 },
-
-    doneButton: {
-        marginTop: 25,
-        backgroundColor: '#5B4DBC',
-        paddingVertical: 15, borderRadius: 15,
-        alignItems: 'center',
-        elevation: 4, shadowColor: "#5B4DBC", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5,
-    },
-    doneButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+    header: { backgroundColor: '#5B4DBC', borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+    headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 },
+    infoBox: { backgroundColor: '#E3F2FD', padding: 15, borderRadius: 10, marginVertical: 15 },
+    btn: { marginTop: 25, backgroundColor: '#5B4DBC', padding: 15, borderRadius: 15, alignItems: 'center' }
 });

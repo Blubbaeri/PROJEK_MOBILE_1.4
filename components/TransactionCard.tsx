@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-// --- TYPES (Supaya tidak error di file lain) ---
-export type TransactionStatus = 'pending' | 'BOOKING' | 'SEDANG_DIPINJAM' | 'SELESAI' | 'DITOLAK' | 'DIBATALKAN';
+// --- TYPES ---
+export type TransactionStatus = 'pending' | 'BOOKING' | 'SEDANG_DIPINJAM' | 'dipinjam' | 'SELESAI' | 'DITOLAK' | 'DIBATALKAN';
 
 export type TransactionItem = {
     equipmentName: string;
@@ -25,42 +25,54 @@ export type Transaction = {
 const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
     const router = useRouter();
 
-    const statusStyles: any = {
-        pending: { color: '#FFA000', backgroundColor: '#FFF8E1', label: 'Pending' },
-        BOOKING: { color: '#FFA000', backgroundColor: '#FFF8E1', label: 'Booked' },
-        SEDANG_DIPINJAM: { color: '#2979FF', backgroundColor: '#E3F2FD', label: 'Active' },
-        SELESAI: { color: '#4CAF50', backgroundColor: '#E8F5E9', label: 'Returned' },
-        DITOLAK: { color: '#F44336', backgroundColor: '#FFEBEE', label: 'Rejected' },
-        DIBATALKAN: { color: '#9E9E9E', backgroundColor: '#F5F5F5', label: 'Cancelled' }
+    // Pemetaan Style Status (Mendukung huruf kecil 'dipinjam')
+    const getStatusStyle = (status: string) => {
+        const s = status ? status.toLowerCase() : '';
+
+        if (s === 'pending' || s === 'booking')
+            return { color: '#FFA000', backgroundColor: '#FFF8E1', label: 'Booked' };
+
+        if (s === 'sedang_dipinjam' || s === 'dipinjam' || s === 'active')
+            return { color: '#2979FF', backgroundColor: '#E3F2FD', label: 'Active' };
+
+        if (s === 'selesai' || s === 'returned')
+            return { color: '#4CAF50', backgroundColor: '#E8F5E9', label: 'Returned' };
+
+        if (s === 'ditolak' || s === 'rejected')
+            return { color: '#F44336', backgroundColor: '#FFEBEE', label: 'Rejected' };
+
+        return { color: '#9E9E9E', backgroundColor: '#F5F5F5', label: 'Cancelled' };
     };
 
-    const safeStatus = transaction.status || 'DIBATALKAN';
-    const currentStatusStyle = statusStyles[safeStatus] || statusStyles.DIBATALKAN;
+    const currentStatusStyle = getStatusStyle(transaction.status);
 
     const displayDate = transaction.borrowedAt || new Date().toISOString();
+
     const formatDate = (dateString?: string | null) =>
         dateString ? new Date(dateString).toLocaleDateString('id-ID', {
             day: 'numeric', month: 'short', year: 'numeric'
         }) : '-';
 
     // Menampilkan preview barang (maksimal 2 nama)
-    const renderItems = (items: TransactionItem[]) => {
+    const renderItemsPreview = (items: TransactionItem[]) => {
         if (!items || items.length === 0) return "No items details";
-        const preview = items.slice(0, 2).map(item => `${item.equipmentName} (${item.quantity})`).join(', ');
+        // Cek apakah data barang ada di properti equipmentName atau name
+        const preview = items.slice(0, 2).map(item =>
+            `${item.equipmentName || 'Barat'} (${item.quantity})`
+        ).join(', ');
         return items.length > 2 ? `${preview}, +${items.length - 2} more` : preview;
     };
 
-    // --- LOGIKA UTAMA: PINDAH KE DETAIL ---
+    // --- LOGIKA PINDAH KE DETAIL ---
     const handlePressCard = () => {
         router.push({
             pathname: '/transaction-detail',
             params: {
                 id: transaction.id,
-                status: safeStatus,
-                // Kita kirim QR Code juga biar nanti bisa dipake di halaman Return
+                status: transaction.status, // Kirim status asli (misal: "dipinjam")
                 qrCode: transaction.qrCode,
-                // Kirim data item sebagai string JSON
-                items: JSON.stringify(transaction.items)
+                // Kirim data item sebagai string JSON agar bisa diparsing di Detail
+                items: JSON.stringify(transaction.items || [])
             }
         });
     };
@@ -74,7 +86,9 @@ const TransactionCard = ({ transaction }: { transaction: Transaction }) => {
                 </View>
                 <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.txnCode}>TXN-{String(transaction.id).padStart(4, '0')}</Text>
-                    <Text style={styles.itemsText} numberOfLines={1}>{renderItems(transaction.items)}</Text>
+                    <Text style={styles.itemsText} numberOfLines={1}>
+                        {renderItemsPreview(transaction.items)}
+                    </Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: currentStatusStyle.backgroundColor }]}>
                     <Text style={[styles.statusText, { color: currentStatusStyle.color }]}>

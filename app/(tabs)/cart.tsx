@@ -1,112 +1,111 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, StatusBar, Alert } from 'react-native';
-import { useRouter } from 'expo-router'; // Hook untuk navigasi pindah halaman
+import { useRouter } from 'expo-router';
+import axios from 'axios';
 
 // --- IMPORT CONTEXT ---
-// Kita mengimpor custom hook 'useCart' untuk mengakses data keranjang belanja
-// yang tersimpan secara Global (bisa diakses dari mana saja).
 import { useCart } from '../../context/CartContext';
 
 // --- IMPORT KOMPONEN TAMPILAN ---
-// Memisahkan Header dan List agar kodingan utama tetap bersih
 import CartHeader from '../../components/CartHeader';
 import CartList from '../../components/CartList';
 
 export default function CartScreen() {
-    // Inisialisasi router untuk bisa pindah halaman
     const router = useRouter();
-
-    // --- 1. MENGAMBIL DATA DARI GLOBAL STATE (CONTEXT) ---
-    // Di sini kita tidak pakai 'useState' lokal untuk list barang,
-    // tapi mengambilnya dari Context. Jadi kalau di Home nambah barang, di sini otomatis muncul.
     const {
-        cartItems,        // Array daftar barang yang dipilih
-        totalItems,       // Jumlah total item (misal: 5)
-        removeFromCart,   // Fungsi hapus barang
-        increaseQuantity, // Fungsi tambah jumlah
-        decreaseQuantity, // Fungsi kurang jumlah
-        clearCart         // Fungsi kosongkan keranjang
+        cartItems,
+        totalItems,
+        removeFromCart,
+        increaseQuantity,
+        decreaseQuantity,
+        clearCart
     } = useCart();
 
-    // State lokal hanya untuk loading saat proses checkout
     const [isBooking, setIsBooking] = useState(false);
 
-    // --- 2. LOGIKA NAVIGASI ---
+    // KONFIGURASI API
+    const IP_ADDRESS = "192.168.100.230";
+    const PORT = "5234";
+    const API_URL = `http://${IP_ADDRESS}:${PORT}/api/borrowing`;
 
-    // Fungsi untuk kembali ke halaman Home (Tabs) jika user ingin belanja lagi
     const handleBrowse = () => router.push('/(tabs)');
 
-    // Fungsi saat tombol Checkout ditekan
     const handleCheckout = () => {
-        // Tampilkan peringatan (Alert) konfirmasi sebelum memproses
+        if (cartItems.length === 0) {
+            Alert.alert("Keranjang Kosong", "Silakan pilih barang terlebih dahulu.");
+            return;
+        }
+
         Alert.alert(
-            "Konfirmasi Checkout", // Judul Alert
-            `Pinjam ${totalItems} alat ini sekarang?`, // Pesan
+            "Konfirmasi Checkout",
+            `Pinjam ${totalItems} alat ini sekarang?`,
             [
-                { text: "Nanti Dulu", style: "cancel" }, // Tombol Batal
-                { text: "Gas, Pinjam!", onPress: processCheckout } // Tombol Lanjut -> Panggil processCheckout
+                { text: "Nanti Dulu", style: "cancel" },
+                { text: "Gas, Pinjam!", onPress: processCheckout }
             ]
         );
     };
 
-    // Fungsi Inti Pemrosesan Booking
-    const processCheckout = () => {
-        setIsBooking(true); // Nyalakan loading spinner
+    const processCheckout = async () => {
+        setIsBooking(true);
 
-        // setTimeout digunakan untuk mensimulasikan jeda request ke server (1 detik)
-        // Nanti aslinya di sini diganti dengan 'axios.post(...)' ke backend.
-        setTimeout(() => {
+        const payload = {
+            userId: 1,
+            items: cartItems.map(item => ({
+                equipmentId: item.id,
+                quantity: item.quantity
+            }))
+        };
 
-            // Membuat data dummy booking untuk dikirim ke halaman QR Code
-            const bookingData = {
-                id: "BOOK-" + Math.floor(Math.random() * 9999), // ID Booking Acak
-                studentId: "MHS-USER",
-                qrCode: "QR-" + Date.now(), // Generate kode unik berdasarkan waktu
-                status: "pending",
-                // Mapping data cart agar strukturnya sesuai kebutuhan backend/halaman selanjutnya
-                items: cartItems.map(item => ({
-                    equipmentId: item.id,
-                    equipmentName: item.name,
-                    quantity: item.quantity,
-                    image: item.image
-                })),
-                timestamp: new Date().toISOString()
-            };
+        try {
+            console.log("Mengirim data checkout ke:", API_URL);
+            const response = await axios.post(API_URL, payload);
 
-            setIsBooking(false); // Matikan loading
+            if (response.status === 200 || response.status === 201) {
+                const backendResult = response.data;
 
-            clearCart(); // Kosongkan keranjang belanja karena transaksi sudah diproses
+                // MENGGABUNGKAN ID BACKEND DENGAN DATA LOKAL CART
+                // Ini supaya di halaman QR data barangnya tidak kosong/undefined
+                const bookingData = {
+                    id: backendResult.id || backendResult.borrowingId || "000",
+                    status: backendResult.status || "PENDING",
+                    items: cartItems.map(item => ({
+                        equipmentId: item.id,
+                        equipmentName: item.name,
+                        quantity: item.quantity,
+                        image: item.image
+                    }))
+                };
 
-            // Pindah ke halaman 'booking-qr' sambil membawa data 'bookingData'
-            // Data dikirim lewat 'params' agar bisa dibaca di halaman tujuan.
-            router.push({
-                pathname: '/(tabs)/booking-qr',
-                params: { data: JSON.stringify(bookingData) } // Data objek diubah jadi String dulu
-            });
-        }, 1000);
+                clearCart();
+
+                router.push({
+                    pathname: '/(tabs)/booking-qr',
+                    params: { data: JSON.stringify(bookingData) }
+                });
+            }
+        } catch (error: any) {
+            console.error("Error Checkout:", error.response?.data || error.message);
+            Alert.alert("Gagal Checkout", "Pastikan server backend Anda berjalan.");
+        } finally {
+            setIsBooking(false);
+        }
     };
 
-    // --- 3. TAMPILAN UI ---
     return (
         <View style={styles.container}>
-            {/* Status Bar disesuaikan warnanya dengan background header */}
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
-            {/* HEADER: Menampilkan Judul dan Tombol Hapus Semua */}
             <CartHeader
                 totalItems={totalItems}
-                onClearCart={clearCart} // Mengirim fungsi clearCart ke tombol tong sampah di header
+                onClearCart={clearCart}
             />
 
-            {/* BODY: Menampilkan Daftar Barang */}
             <View style={styles.bodyContainer}>
                 <CartList
-                    cart={cartItems}         // Data barang
-                    totalItems={totalItems}  // Info jumlah total
-                    isBooking={isBooking}    // Info status loading checkout
-
-                    // Mengirim fungsi-fungsi interaksi ke komponen anak (CartList)
-                    // agar tombol tambah/kurang di setiap kartu barang bisa berfungsi
+                    cart={cartItems}
+                    totalItems={totalItems}
+                    isBooking={isBooking}
                     onRemove={removeFromCart}
                     onIncrease={increaseQuantity}
                     onDecrease={decreaseQuantity}
@@ -118,14 +117,13 @@ export default function CartScreen() {
     );
 }
 
-// --- STYLING ---
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#5B4DBC' }, // Background Ungu (Header)
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
     bodyContainer: {
         flex: 1,
-        backgroundColor: '#F5F5F7', // Background Abu-abu muda (List)
-        borderTopLeftRadius: 30,    // Membuat lengkungan di pojok kiri atas
-        borderTopRightRadius: 30,   // Membuat lengkungan di pojok kanan atas
-        overflow: 'hidden'          // Memastikan isi list tidak menembus lengkungan
+        backgroundColor: '#F5F5F7',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        overflow: 'hidden'
     }
 });
