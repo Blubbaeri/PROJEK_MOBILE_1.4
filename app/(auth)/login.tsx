@@ -21,7 +21,7 @@ import { useRouter } from 'expo-router'; // <--- 1. INI PENTING (Import Router)
 export default function LoginScreen() {
     const router = useRouter(); // <--- 2. Panggil Router
     const [email, setEmail] = useState('budi@student.simpel.lab');
-    const [password, setPassword] = useState('');
+    const [password, setPassword] = useState('123456');
     const [isLoading, setIsLoading] = useState(false);
 
     const { signIn } = useAuth();

@@ -7,10 +7,7 @@ import { useCart } from '../../context/CartContext';
 import CartHeader from '../../components/CartHeader';
 import CartList from '../../components/CartList';
 
-//const IP_ADDRESS = "192.168.100.4";
-const IP_ADDRESS = "10.1.6.125";
-const PORT = "5234";
-const API_URL = `http://${IP_ADDRESS}:${PORT}/api/borrowing`;
+import { api } from '../../lib/api'; 
 
 // Helper function untuk handle unknown error
 const getErrorMessage = (error: unknown): string => {
@@ -49,125 +46,84 @@ export default function CartScreen() {
     const processCheckout = async () => {
         setIsBooking(true);
 
-        // Setup timeout dengan AbortController
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-
         try {
-            // 1. Validasi cart tidak kosong
             if (cartItems.length === 0) {
                 throw new Error('Keranjang kosong');
             }
 
-            // 2. Format data untuk backend
+            // ⭐ FORMAT YANG BENAR SESUAI SWAGGER
             const borrowingData = {
-                mhsId: 1, // ⚠️ Hardcode dulu, nanti ganti dengan user login
+                mhsId: 1, // Hardcode dulu
                 items: cartItems.map(item => ({
-                    equipmentId: item.id,
+                    psaId: item.id,  // ⭐ INI YANG BENAR!
                     quantity: item.quantity
-                })),
-                status: "Booked"
+                }))
+                // ⭐ JANGAN TAMBAH "status" - backend akan set otomatis
             };
 
-            console.log('Mengirim data:', borrowingData);
+            console.log('📤 Mengirim data ke backend:', borrowingData);
 
-            // 3. POST ke API menggunakan fetch dengan timeout
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(borrowingData),
-                signal: controller.signal // Untuk timeout handling
+            const response = await api.post('/api/borrowing', borrowingData, {
+                timeout: 10000
             });
 
-            clearTimeout(timeoutId); // Clear timeout jika sukses
+            console.log('✅ Response dari backend:', response.data);
 
-            // 4. Cek jika response OK
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP error ${response.status}: ${errorText}`);
-            }
+            const result = response.data;
 
-            // 5. Parse response JSON
-            const result = await response.json();
-            console.log('Response dari server:', result);
-
-            // 6. ✅ PERBAIKAN PENTING: Backend tidak kirim field "success"
-            // Format backend: { data: {...}, message: "..." }
-            // BUKAN: { success: true, data: {...}, message: "..." }
+            // Handle response
             if (!result.data) {
-                // Jika tidak ada data, tapi ada message success, anggap success
-                if (result.message && result.message.includes("success")) {
-                    console.log("Success berdasarkan message:", result.message);
-                    // Lanjutkan tanpa data (optional)
-                } else {
-                    throw new Error(result.message || 'Invalid response from server');
-                }
+                throw new Error(result.message || 'Invalid response from server');
             }
 
-            // 7. Navigasi ke QR dengan data REAL dari backend
+            // Navigasi ke QR screen
             router.push({
                 pathname: '/(tabs)/booking-qr',
                 params: {
                     data: JSON.stringify({
-                        id: result.data?.id || Date.now(), // gunakan data.id jika ada
+                        id: result.data.id,
                         studentId: borrowingData.mhsId,
-                        qrCode: result.data?.qrCode || `QR-${Date.now()}`,
-                        status: result.data?.status || "Booked",
+                        qrCode: result.data.qrCode,
+                        status: result.data.status || "Booked",
                         items: cartItems.map(item => ({
                             equipmentId: item.id,
                             equipmentName: item.name,
                             quantity: item.quantity,
                             image: item.image
                         })),
-                        qrExpiry: result.data?.qrExpiry || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+                        qrExpiry: result.data.qrExpiry,
                         timestamp: new Date().toISOString()
                     })
                 }
             });
 
         } catch (error: any) {
-            clearTimeout(timeoutId); // Clear timeout jika error
+            console.error("❌ Checkout error:", error);
 
-            console.error("Checkout error:", error);
+            // ⭐ DETAILED ERROR LOGGING
+            if (error.response) {
+                console.log('📊 Error details:', {
+                    status: error.response.status,
+                    data: error.response.data,
+                    requestData: JSON.parse(error.config?.data || '{}')
+                });
 
-            // Handle error dengan helper function
-            const errorMessage = getErrorMessage(error);
+                // Tampilkan error yang lebih informatif
+                const errorMsg = error.response.data?.message ||
+                    error.response.data?.errors?.join(', ') ||
+                    'Unknown error';
 
-            // Special handling untuk timeout/AbortError
-            if (error.name === 'AbortError' || errorMessage.includes('timeout')) {
                 Alert.alert(
-                    "Timeout",
-                    "Request timeout. Coba lagi atau periksa koneksi internet."
+                    `Error ${error.response.status}`,
+                    `Server error: ${errorMsg}`
                 );
+            } else {
+                Alert.alert("Gagal Checkout", error.message || 'Unknown error');
             }
-            // 🚨 PERBAIKAN: Jika error message adalah "Borrowing created successfully"
-            else if (errorMessage.includes('Borrowing created successfully')) {
-                console.log('✅ Backend success, but frontend parsed as error');
 
-                // Try to extract data from error message if possible
-                Alert.alert(
-                    "Booking Berhasil!",
-                    "Peminjaman berhasil dibuat. Silakan cek halaman transaksi.",
-                    [
-                        {
-                            text: "OK",
-                            onPress: () => {
-                                // Navigate to transactions page
-                                router.push('/(tabs)/transaction');
-                            }
-                        }
-                    ]
-                );
-            }
-            else {
-                Alert.alert("Gagal Checkout", errorMessage);
-            }
         } finally {
             setIsBooking(false);
-            clearCart(); // Kosongkan keranjang setelah proses selesai
+            clearCart();
         }
     };
 

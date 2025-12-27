@@ -7,12 +7,14 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { api } from '../../lib/api';
+
 // Import komponen modular
 import BookingStatus from '../../components/BookingStatus';
 import QrCodeDisplay from '../../components/QrCodeDisplay';
 import BookingItemList from '../../components/BookingItemList';
 
-// ⭐ DEFINE INTERFACE
+// DEFINE INTERFACE
 interface BorrowingData {
     id: number;
     qrCode: string;
@@ -30,53 +32,42 @@ export default function BookingQr() {
     const [borrowingData, setBorrowingData] = useState<BorrowingData | null>(null);
     const [isPolling, setIsPolling] = useState(false);
     const pollingRef = useRef<number | null>(null);
-
-    // ⭐ GUNAKAN REF UNTUK STATE YANG DIPAKAI DI INTERVAL
     const borrowingDataRef = useRef<BorrowingData | null>(null);
 
-    // ⭐ UPDATE REF SETIAP STATE BERUBAH
     useEffect(() => {
         borrowingDataRef.current = borrowingData;
     }, [borrowingData]);
 
-    // API URL
-    const API_BASE = "http://10.1.6.125:5234";
-    //const API_BASE = "http://192.168.100.4:5234";
-
-    // ⭐ STOP POLLING - PAKAI useCallback
+    // STOP POLLING
     const stopStatusPolling = useCallback(() => {
         if (pollingRef.current) {
             clearInterval(pollingRef.current);
             pollingRef.current = null;
         }
         setIsPolling(false);
-        console.log("🛑 Polling stopped");
+        console.log("Polling stopped");
     }, []);
 
-    // ⭐ FUNGSI POLLING - PAKAI useCallback
+    //FUNGSI POLLING - PAKAI api.get()
     const startStatusPolling = useCallback((borrowingId: number) => {
-        console.log(`🚀 Start polling for ID: ${borrowingId}`);
+        console.log(`Start polling for ID: ${borrowingId}`);
         setIsPolling(true);
 
-        // Clear existing interval
         if (pollingRef.current) {
             clearInterval(pollingRef.current);
         }
 
         pollingRef.current = setInterval(async () => {
             try {
-                console.log(`🔄 Polling status for ID: ${borrowingId}`);
-                const response = await fetch(`${API_BASE}/api/borrowing/${borrowingId}`);
+                console.log(`Polling status for ID: ${borrowingId}`);
 
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                // PAKAI api.get() BUKAN fetch()
+                const response = await api.get(`/api/borrowing/${borrowingId}`);
+                const result = response.data;
 
-                const result = await response.json();
-
-                // ⭐ GUNAKAN REF, BUKAN STATE LANGSUNG
                 const currentStatus = borrowingDataRef.current?.status;
 
                 if (result.data && result.data.status !== currentStatus) {
-                    // ⭐ STATUS BERUBAH!
                     console.log(`✅ Status changed: ${currentStatus} → ${result.data.status}`);
 
                     setBorrowingData(prev => {
@@ -87,16 +78,14 @@ export default function BookingQr() {
                         };
                     });
 
-                    // ⭐ TAMPILKAN NOTIFIKASI
                     if (result.data.status === "Diproses") {
                         Alert.alert(
-                            "✅ Status Diperbarui",
+                            "Status Diperbarui",
                             "Booking Anda sedang diproses oleh admin.\nSilakan tunggu approval.",
                             [{ text: "OK" }]
                         );
                     }
 
-                    // ⭐ JIKA SUDAH BUKAN "Booked", STOP POLLING
                     if (result.data.status !== "Booked") {
                         stopStatusPolling();
                     }
@@ -104,17 +93,17 @@ export default function BookingQr() {
             } catch (error) {
                 console.error("❌ Polling error:", error);
             }
-        }, 2000); // ⭐ PERCEPAT JADI 2 DETIK
+        }, 2000);
     }, [stopStatusPolling]);
 
-    // Parsing Data Awal
+    // PARSING DATA AWAL 
     useEffect(() => {
         if (data) {
             try {
                 const parsed = JSON.parse(data as string) as BorrowingData;
                 setBorrowingData(parsed);
 
-                // ⭐ JIKA STATUS MASIH "Booked", START POLLING
+                // JIKA STATUS MASIH "Booked", START POLLING
                 if (parsed.status === "Booked" && parsed.id) {
                     startStatusPolling(parsed.id);
                 }
@@ -125,25 +114,27 @@ export default function BookingQr() {
         }
     }, [data, startStatusPolling]);
 
-    // ⭐ CLEANUP SAAT KOMPONEN UNMOUNT
+    // CLEANUP SAAT KOMPONEN UNMOUNT 
     useEffect(() => {
         return () => {
             stopStatusPolling();
         };
     }, [stopStatusPolling]);
 
+    // HANDLE BACK FUNCTION
     const handleBack = () => {
         stopStatusPolling();
-        router.replace('/(tabs)');
+        router.replace('/(tabs)/transaction');
     };
 
-    // ⭐ REFRESH STATUS MANUAL
+    // REFRESH STATUS MANUAL - PAKAI api.get()
     const refreshStatus = async () => {
         if (!borrowingData?.id) return;
 
         try {
-            const response = await fetch(`${API_BASE}/api/borrowing/${borrowingData.id}`);
-            const result = await response.json();
+            // PAKAI api.get()
+            const response = await api.get(`/api/borrowing/${borrowingData.id}`);
+            const result = response.data;
 
             if (result.data) {
                 setBorrowingData(prev => {

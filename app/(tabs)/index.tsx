@@ -1,135 +1,139 @@
-﻿//app/(tabs)/index.tsx
-
+﻿// app/(tabs)/index.tsx
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
-import axios from 'axios';
+import { View, StyleSheet, StatusBar, ActivityIndicator, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { useCart } from '../../context/CartContext';
 import Toast from 'react-native-toast-message';
-    
+
+import { useCart } from '../../context/CartContext';
+import { api } from '../../lib/api';
+
 import HomeHeader from '../../components/HomeHeader';
 import EquipmentList from '../../components/EquipmentList';
 
-//const IP_ADDRESS = "192.168.100.4";
-const IP_ADDRESS = "10.1.6.125";
-const PORT = "5234";
-const API_URL = `http://${IP_ADDRESS}:${PORT}/api/equipment`;
+type Category = {
+    id: number;
+    name: string;
+};
 
 export default function HomeScreen() {
     const { addToCart } = useCart();
 
     const [equipment, setEquipment] = useState<any[]>([]);
-    const [categories, setCategories] = useState<any[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = All
     const [searchQuery, setSearchQuery] = useState('');
+
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag untuk pertama kali load
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
 
-    // Ambil SEMUA kategori dari semua data
+    /* =============================
+        TEST CONNECTION
+    ============================== */
+    const testConnection = async () => {
+        try {
+            await api.get('/api/category');
+            setConnectionError(false);
+            return true;
+        } catch {
+            setConnectionError(true);
+            return false;
+        }
+    };
+
+    /* =============================
+        FETCH CATEGORIES
+    ============================== */
     const fetchAllCategories = async () => {
         try {
-            const response = await axios.get(API_URL);
-            const responseData = response.data;
-            const allData = responseData?.data || responseData || [];
+            const res = await api.get('/api/category');
+            const data = res.data?.data ?? [];
 
-            // Extract semua kategori unik
-            const categoryMap = new Map();
+            const formatted: Category[] = data.map((cat: any) => ({
+                id: cat.id,
+                name: cat.name
+            }));
 
-            // Ambil kategori dari semua data
-            allData.forEach((item: any) => {
-                if (item.categoryName && !categoryMap.has(item.categoryName)) {
-                    categoryMap.set(item.categoryName, {
-                        id: item.categoryId || categoryMap.size,
-                        name: item.categoryName
-                    });
-                }
-            });
-
-            // Konversi ke array
-            const allCategories = Array.from(categoryMap.values());
-            setCategories(allCategories);
-
-            return allData; // Return data untuk digunakan di fetchData jika perlu
-
-        } catch (error) {
-            console.error("Gagal mengambil kategori:", error);
-            setCategories([{ id: 0, name: 'All' }]);
-            return [];
+            setCategories(formatted);
+            setSelectedCategory(null); // default All
+        } catch (err) {
+            console.error('Gagal ambil kategori:', err);
+            setCategories([]);
+            setSelectedCategory(null);
         }
     };
 
-    // Ambil data dengan filter
+    /* =============================
+        FETCH EQUIPMENT
+    ============================== */
     const fetchData = async (categoryName: string | null) => {
         try {
-            let url = API_URL;
+            let res;
 
-            if (categoryName && categoryName !== 'All') {
-                const encodedName = encodeURIComponent(categoryName);
-                url = `${API_URL}/category/${encodedName}`;
+            if (categoryName === null) {
+                // ALL
+                res = await api.get('/api/equipment/with-stock');
+            } else {
+                const cat = categories.find(c => c.name === categoryName);
+                if (!cat) return;
+
+                res = await api.get(`/api/equipment/category/${cat.id}/with-stock`);
             }
 
-            const response = await axios.get(url);
-            const responseData = response.data;
-            const data = responseData?.data || responseData || [];
-
-            setEquipment(data);
-
-        } catch (error) {
-            console.error("Gagal mengambil data:", error);
+            setEquipment(res.data?.data ?? []);
+            setConnectionError(false);
+        } catch (err) {
+            console.error('Gagal ambil equipment:', err);
             setEquipment([]);
+            setConnectionError(true);
         }
     };
 
-    // Load data awal saat pertama kali masuk
+    /* =============================
+        INITIAL LOAD
+    ============================== */
     const loadInitialData = async () => {
         if (!isInitialLoad) return;
 
         setIsLoading(true);
-        try {
-            // Ambil semua kategori SEKALI SAJA di awal
-            await fetchAllCategories();
-
-            // Ambil data sesuai kategori yang dipilih (default All)
-            await fetchData(selectedCategory);
-
-            setIsInitialLoad(false);
-        } catch (error) {
-            console.error("Gagal load data awal:", error);
-        } finally {
+        const ok = await testConnection();
+        if (!ok) {
             setIsLoading(false);
+            return;
         }
+
+        await fetchAllCategories();
+        await fetchData(null);
+
+        setIsInitialLoad(false);
+        setIsLoading(false);
     };
 
-    // Load data saat kategori berubah
+    /* =============================
+        LOAD BY CATEGORY
+    ============================== */
     const loadDataByCategory = async () => {
-        if (isInitialLoad) return; // Skip jika masih load awal
+        if (isInitialLoad) return;
 
         setIsLoading(true);
-        try {
-            await fetchData(selectedCategory);
-        } catch (error) {
-            console.error("Gagal load data by category:", error);
-        } finally {
-            setIsLoading(false);
-        }
+        await fetchData(selectedCategory);
+        setIsLoading(false);
     };
 
-    // Trigger saat screen focus
     useFocusEffect(
         useCallback(() => {
             loadInitialData();
-        }, []) // Empty dependency - hanya sekali
+        }, [])
     );
 
-    // Trigger saat selectedCategory berubah
     useEffect(() => {
-        if (!isInitialLoad) {
-            loadDataByCategory();
-        }
+        loadDataByCategory();
     }, [selectedCategory]);
 
-    // Refresh data (pull to refresh)
+    /* =============================
+        HANDLERS
+    ============================== */
     const handleRefresh = () => {
         setIsRefreshing(true);
         fetchData(selectedCategory).finally(() => {
@@ -137,10 +141,9 @@ export default function HomeScreen() {
         });
     };
 
-    // Tambah ke keranjang
     const handleAddToCart = (item: any) => {
         if (item.stock <= 0) {
-            Toast.show({ type: 'error', text1: 'Stok Habis!', text2: 'Barang tidak tersedia.' });
+            Toast.show({ type: 'error', text1: 'Stok habis' });
             return;
         }
 
@@ -153,22 +156,47 @@ export default function HomeScreen() {
             stock: item.stock
         });
 
-        setEquipment(currentData =>
-            currentData.map(eq => {
-                if (eq.id === item.id) {
-                    return { ...eq, stock: eq.stock - 1 };
-                }
-                return eq;
-            })
+        setEquipment(prev =>
+            prev.map(eq =>
+                eq.id === item.id ? { ...eq, stock: eq.stock - 1 } : eq
+            )
         );
 
-        Toast.show({ type: 'success', text1: 'Berhasil', text2: `${item.name} masuk keranjang` });
+        Toast.show({
+            type: 'success',
+            text1: 'Berhasil',
+            text2: `${item.name} masuk keranjang`
+        });
     };
 
-    // Filter data berdasarkan search
+    /* =============================
+        FILTER SEARCH
+    ============================== */
     const filteredData = equipment.filter(item =>
-        item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    /* =============================
+        UI
+    ============================== */
+    if (connectionError && !isLoading) {
+        return (
+            <View style={styles.mainContainer}>
+                <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
+                <HomeHeader
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    categories={categories}
+                    selectedCategory={selectedCategory}
+                    setSelectedCategory={setSelectedCategory}
+                />
+                <View style={[styles.bodyContainer, styles.center]}>
+                    <Text style={{ fontSize: 18, color: 'red' }}>❌ Koneksi Error</Text>
+                    <Text>Periksa server API</Text>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.mainContainer}>
@@ -183,13 +211,20 @@ export default function HomeScreen() {
             />
 
             <View style={styles.bodyContainer}>
-                <EquipmentList
-                    data={filteredData}
-                    loading={isLoading}
-                    refreshing={isRefreshing}
-                    onRefresh={handleRefresh}
-                    onAddToCart={handleAddToCart}
-                />
+                {isLoading && !isRefreshing ? (
+                    <View style={styles.center}>
+                        <ActivityIndicator size="large" color="#5B4DBC" />
+                        <Text>Loading...</Text>
+                    </View>
+                ) : (
+                    <EquipmentList
+                        data={filteredData}
+                        loading={isLoading}
+                        refreshing={isRefreshing}
+                        onRefresh={handleRefresh}
+                        onAddToCart={handleAddToCart}
+                    />
+                )}
             </View>
         </View>
     );
@@ -202,7 +237,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F7',
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
-        overflow: 'hidden',
         paddingTop: 10
+    },
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center'
     }
 });

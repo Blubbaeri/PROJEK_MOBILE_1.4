@@ -2,42 +2,32 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-/**
- * Cari IP yang digunakan Expo/Metro (debuggerHost / hostUri) dan
- * return base URL: http://<ip>:5234
- *
- * Jika tidak ketemu, fallback ke localhost/emulator defaults.
- */
 export function getApiBaseUrl(): string {
-    // 1) Try modern Expo fields first
-    const expoHost =
-        // Expo dev client / newer expo
-        // @ts-ignore
-        Constants.expoConfig?.hostUri ||
-        // older / other fields fallback
-        // @ts-ignore
-        Constants.expoGoConfig?.hostUri ||
-        // legacy manifest
-        // @ts-ignore
-        Constants.manifest?.debuggerHost ||
-        // expo web / other
-        // @ts-ignore
-        Constants.debuggerHost;
+    const PORT = 5234;
 
-    if (expoHost) {
-        const hostOnly = String(expoHost).split(":")[0];
-        // Android emulator special case when host is 'localhost'
-        if (Platform.OS === "android" && (hostOnly === "localhost" || hostOnly === "127.0.0.1")) {
-            // Android emulator -> maps to host machine via 10.0.2.2
-            return "http://10.0.2.2:5234";
+    // **EDIT IP DI SINI SAJA!**
+    //const ACTIVE_IP = '10.1.6.125'; // <-- GANTI DI SINI KALO GANTI WiFi
+    const ACTIVE_IP = '192.168.100.3'; // <-- GANTI DI SINI KALO GANTI WiFi
+
+    // Untuk development mode (emulator)
+    if (__DEV__) {
+        const expoHost =
+            // @ts-ignore
+            Constants.expoConfig?.hostUri ||
+            // @ts-ignore
+            Constants.manifest?.debuggerHost ||
+            // @ts-ignore
+            Constants.debuggerHost;
+
+        if (expoHost) {
+            const hostOnly = String(expoHost).split(":")[0];
+            if (Platform.OS === "android" && (hostOnly === "localhost" || hostOnly === "127.0.0.1")) {
+                return `http://10.0.2.2:${PORT}`;
+            }
+            return `http://${hostOnly}:${PORT}`;
         }
-        return `http://${hostOnly}:5234`;
     }
 
-    // No expo info available (e.g. building web or unusual env)
-    // Fallbacks:
-    if (Platform.OS === "android") return "http://10.0.2.2:5234"; // emulator
-    if (Platform.OS === "ios") return "http://localhost:5234"; // simulator maps to host
-    // default fallback (for web/dev)
-    return "http://localhost:5234";
+    // Fallback ke IP aktif (device fisik)
+    return `http://${ACTIVE_IP}:${PORT}`;
 }
