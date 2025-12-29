@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // 1. Tambahkan import router
 
 // Definisi Tipe Tab
 type TabType = 'All' | 'Borrowing' | 'Returned';
@@ -18,6 +19,9 @@ const TransactionHeader = ({
     selectedTab,
     setSelectedTab
 }: TransactionHeaderProps) => {
+
+    // 2. Inisialisasi router
+    const router = useRouter();
 
     // Array tabs
     const tabs: TabType[] = ['All', 'Borrowing', 'Returned'];
@@ -55,10 +59,14 @@ const TransactionHeader = ({
                         <View style={styles.notifDot} />
                     </TouchableOpacity>
 
-                    {/* Ikon User */}
-                    <View style={styles.avatarPlaceholder}>
+                    {/* 3. UBAH DISINI: Ikon User sekarang bisa diklik ke Profile */}
+                    <TouchableOpacity
+                        style={styles.avatarPlaceholder}
+                        onPress={() => router.push('/profile')}
+                        activeOpacity={0.7}
+                    >
                         <FontAwesome name="user" size={18} color="#5B4DBC" />
-                    </View>
+                    </TouchableOpacity>
                 </View>
             </View>
 
