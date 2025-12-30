@@ -16,8 +16,7 @@ type Category = {
 };
 
 export default function HomeScreen() {
-    const { addToCart } = useCart();
-
+    const { addToCart } = useCart()
     const [equipment, setEquipment] = useState<any[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = All
@@ -70,18 +69,33 @@ export default function HomeScreen() {
     const fetchData = async (categoryName: string | null) => {
         try {
             let res;
-
             if (categoryName === null) {
-                // ALL
                 res = await api.get('/api/equipment/with-stock');
             } else {
                 const cat = categories.find(c => c.name === categoryName);
                 if (!cat) return;
-
                 res = await api.get(`/api/equipment/category/${cat.id}/with-stock`);
             }
 
-            setEquipment(res.data?.data ?? []);
+            // NORMALIZE DATA: mapping dari API response ke format yang diharapkan
+            const normalizedData = (res.data?.data ?? []).map((item: any) => ({
+                id: item.equipmentId,           // ← map equipmentId ke id
+                name: item.equipmentName,       // ← map equipmentName ke name
+                equipmentId: item.equipmentId,  // ← tetap simpan original jika perlu
+                equipmentName: item.equipmentName,
+                categoryId: item.categoryId,
+                categoryName: item.categoryName,
+                locationId: item.locationId,
+                locationName: item.locationName,
+                status: item.status,
+                stock: item.availableStock,     // ← map availableStock ke stock
+                availableStock: item.availableStock,
+                totalStock: item.totalStock,
+                image: item.image || null,      // default jika tidak ada
+                // tambahkan field lain jika perlu
+            }));
+
+            setEquipment(normalizedData);
             setConnectionError(false);
         } catch (err) {
             console.error('Gagal ambil equipment:', err);
@@ -141,32 +155,69 @@ export default function HomeScreen() {
         });
     };
 
-    const handleAddToCart = (item: any) => {
-        if (item.stock <= 0) {
-            Toast.show({ type: 'error', text1: 'Stok habis' });
-            return;
+    // HomeScreen.tsx
+    const handleAddToCart = async (item: any) => {
+        try {
+            // Gunakan equipmentId jika perlu, tapi id sudah di-normalize
+            console.log(`🎯 Adding ${item.name} (equipmentId=${item.id}) to cart`);
+
+            // 1. Get available PSA IDs
+            // Ganti item.id dengan item.equipmentId jika endpoint butuh equipmentId
+            const res = await api.get(`/api/equipment/${item.equipmentId || item.id}/available-psa`);
+            const availableData = res.data?.data;
+
+            console.log('📊 Available PSA IDs:', availableData);
+
+            if (!availableData || availableData.availableStock <= 0) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Stok habis',
+                    text2: `${item.name} tidak tersedia saat ini`
+                });
+                return;
+            }
+
+            // 2. Ambil PSA_ID pertama yang available
+            const psaId = availableData.availablePsaIds[0];
+
+            console.log(`✅ Using PSA_ID: ${psaId} for ${item.name}`);
+
+            // 3. Add to cart dengan data lengkap
+            addToCart({
+                id: psaId,                    // PSA_ID untuk checkout
+                perId: item.equipmentId || item.id,  // PER_ID/equipmentId untuk reference
+                name: item.name,
+                price: 0,
+                quantity: 1,
+                image: item.image,
+                stock: availableData.availableStock, // Available stock
+                availablePsaIds: availableData.availablePsaIds
+            });
+
+            // 4. Update local state
+            setEquipment(prev =>
+                prev.map(eq =>
+                    eq.id === item.id ? {
+                        ...eq,
+                        stock: availableData.availableStock - 1
+                    } : eq
+                )
+            );
+
+            Toast.show({
+                type: 'success',
+                text1: 'Berhasil',
+                text2: `${item.name} masuk keranjang (Unit #${psaId})`
+            });
+
+        } catch (error) {
+            console.error('❌ Error adding to cart:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Gagal',
+                text2: 'Gagal menambah ke keranjang'
+            });
         }
-
-        addToCart({
-            id: item.id,
-            name: item.name,
-            price: 0,
-            quantity: 1,
-            image: item.image,
-            stock: item.stock
-        });
-
-        setEquipment(prev =>
-            prev.map(eq =>
-                eq.id === item.id ? { ...eq, stock: eq.stock - 1 } : eq
-            )
-        );
-
-        Toast.show({
-            type: 'success',
-            text1: 'Berhasil',
-            text2: `${item.name} masuk keranjang`
-        });
     };
 
     /* =============================

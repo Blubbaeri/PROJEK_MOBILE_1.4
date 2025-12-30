@@ -3,39 +3,35 @@
     import React from 'react';
     import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
-    // --- DEFINISI TIPE PROPS ---
-    // Komponen ini menerima dua hal:
-    // 1. data: Objek berisi detail barang (nama, gambar, stok, harga)
-    // 2. onAdd: Sebuah fungsi yang akan dipanggil saat tombol ditekan
     interface EquipmentCardProps {
         data: any;
-        onAdd: () => void; // <--- Wajib dikirim oleh Induk (EquipmentList)
+        onAdd: () => void; 
     }
 
     export default function EquipmentCard({ data, onAdd }: EquipmentCardProps) {
-        // --- LOGIKA SEDERHANA ---
-        // Membuat variabel boolean (true/false) untuk mengecek stok.
-        // Jika stok > 0, maka isAvailable = true.
+
+        console.log('🎯 EquipmentCard received:', {
+            id: data.id,
+            name: data.name,
+            stock: data.stock,
+            available: data.available,
+            allFields: Object.keys(data)
+        });
+
         const isAvailable = data.stock > 0;
+
+        console.log(`📊 ${data.name}: stock=${data.stock}, isAvailable=${isAvailable}`);
 
         return (
             <View style={styles.card}>
                 {/* --- BAGIAN 1: GAMBAR BARANG --- */}
                 <View style={styles.imageContainer}>
-                    {/* Logika Tampilan Bersyarat (Ternary Operator):
-                        Apakah data.image ada isinya?
-                        JIKA YA (?): Pakai gambar dari link tersebut.
-                        JIKA TIDAK (:): Pakai gambar placeholder (abu-abu) agar tidak error.
-                    */}
                     <Image
                         source={data.image ? { uri: data.image } : { uri: 'https://via.placeholder.com/150' }}
                         style={styles.image}
                     />
                 </View>
 
-                {/* --- BAGIAN 2: INFORMASI TEXT --- */}
-                {/* numberOfLines={2} membatasi teks maksimal 2 baris.
-                    Jika nama barang kepanjangan, nanti akan muncul titik-titik (...) */}
                 <Text style={styles.name} numberOfLines={2}>{data.name}</Text>
             
                 {/* Menampilkan sisa stok */}
@@ -43,20 +39,11 @@
 
                 {/* --- BAGIAN 3: TOMBOL ADD --- */}
                 <TouchableOpacity
-                    // Style Dinamis:
-                    // Jika tersedia (isAvailable true), warna biru (#26C6DA).
-                    // Jika habis, warna abu-abu (#ccc).
+
                     style={[styles.addButton, { backgroundColor: isAvailable ? '#26C6DA' : '#ccc' }]}
-
-                    // Aksi Klik:
-                    // Panggil fungsi onAdd milik induk saat tombol ditekan.
                     onPress={onAdd}
-
-                    // Properti disabled:
-                    // Jika stok habis (!isAvailable), tombol dimatikan (tidak bisa diklik).
                     disabled={!isAvailable}
                 >
-                    {/* Teks Tombol juga berubah sesuai status stok */}
                     <Text style={{ color: 'white', fontWeight: 'bold' }}>
                         {isAvailable ? 'Add to Cart' : 'Habis'}
                     </Text>
@@ -75,7 +62,6 @@
             margin: 5,
             alignItems: 'center',
 
-            // elevation: Memberikan efek bayangan (shadow) khusus di Android
             elevation: 2
         },
         imageContainer: {

@@ -1,32 +1,43 @@
-//components/transactionHeader.tsx
+// components/TransactionHeader.tsx
 
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
 
-// Definisi Tipe Tab
-type TabType = 'All' | 'Borrowing' | 'Returned';
+// Definisi Tipe Tab dengan semua status
+type TabType = 'All' | 'Booked' | 'Diproses' | 'Dipinjam' | 'Dikembalikan' | 'Selesai' | 'Ditolak';
 
 type TransactionHeaderProps = {
     searchQuery: string;
     setSearchQuery: (text: string) => void;
     selectedTab: TabType;
     setSelectedTab: (tab: TabType) => void;
+    onTabChange?: (tab: TabType) => void; // Callback saat tab berubah
 };
 
 const TransactionHeader = ({
     searchQuery,
     setSearchQuery,
     selectedTab,
-    setSelectedTab
+    setSelectedTab,
+    onTabChange
 }: TransactionHeaderProps) => {
 
-    // Array tabs
-    const tabs: TabType[] = ['All', 'Borrowing', 'Returned'];
+    // Array semua tabs
+    const tabs: TabType[] = ['All', 'Booked', 'Diproses', 'Dipinjam', 'Dikembalikan', 'Selesai', 'Ditolak'];
 
     // Fungsi dummy notifikasi
     const handleNotificationPress = () => {
         Alert.alert("Notifications", "No new transaction updates.");
+    };
+
+    // Handler untuk tab press
+    const handleTabPress = (tab: TabType) => {
+        setSelectedTab(tab);
+        // Panggil callback jika ada
+        if (onTabChange) {
+            onTabChange(tab);
+        }
     };
 
     return (
@@ -87,7 +98,7 @@ const TransactionHeader = ({
                         <TouchableOpacity
                             key={tab}
                             style={[styles.catPill, selectedTab === tab && styles.catPillActive]}
-                            onPress={() => setSelectedTab(tab)}
+                            onPress={() => handleTabPress(tab)}
                         >
                             <Text style={[styles.catText, selectedTab === tab && styles.catTextActive]}>
                                 {tab}
@@ -159,19 +170,32 @@ const styles = StyleSheet.create({
     },
     searchInput: { flex: 1, color: 'white', fontSize: 16 },
 
-    // Style Tabs
+    // Style Tabs (diperbarui untuk tab yang lebih banyak)
     catPill: {
         paddingVertical: 8,
-        paddingHorizontal: 18,
+        paddingHorizontal: 15, // Dikurangi sedikit
         borderRadius: 25,
         backgroundColor: 'rgba(255,255,255,0.1)',
-        marginRight: 10,
+        marginRight: 8, // Dikurangi margin
         borderWidth: 1,
         borderColor: 'transparent',
+        minWidth: 70, // Minimum width untuk konsistensi
     },
-    catPillActive: { backgroundColor: 'white' },
-    catText: { color: 'rgba(255,255,255,0.8)', fontWeight: '600', fontSize: 13 },
-    catTextActive: { color: '#5B4DBC', fontWeight: 'bold' },
+    catPillActive: {
+        backgroundColor: 'white',
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    catText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontWeight: '600',
+        fontSize: 12, // Dikecilkan sedikit
+        textAlign: 'center'
+    },
+    catTextActive: {
+        color: '#5B4DBC',
+        fontWeight: 'bold',
+        fontSize: 12
+    },
 });
 
 export default TransactionHeader;

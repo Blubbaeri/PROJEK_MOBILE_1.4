@@ -3,11 +3,13 @@ import React, { createContext, useContext, useState, ReactNode } from 'react';
 // Definisi Tipe Data
 export interface CartItem {
     id: number | string;
+    perId?: number;
     name: string;
     image?: any;
     quantity: number;
     stock?: number;
     price?: number;
+    availablePsaIds?: number[]; 
 }
 
 interface CartContextType {

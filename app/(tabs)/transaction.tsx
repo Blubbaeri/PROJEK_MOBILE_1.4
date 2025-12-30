@@ -1,4 +1,6 @@
-﻿import React, { useState, useCallback, useMemo } from 'react';
+﻿// app/(tabs)/transaction.tsx
+
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -33,19 +35,9 @@ const normalizeStatus = (raw: any): TransactionStatus => {
 };
 
 /* =========================================================
-   KONSTANTA STATUS UNTUK FILTER TAB
+   TIPE TAB BARU
    ========================================================= */
-const BORROWING_STATUS: TransactionStatus[] = [
-    'Booked',
-    'Diproses',
-    'Dipinjam'
-];
-
-const RETURNED_STATUS: TransactionStatus[] = [
-    'Ditolak',
-    'Dikembalikan',
-    'Selesai'
-];
+type TabType = 'All' | 'Booked' | 'Diproses' | 'Dipinjam' | 'Dikembalikan' | 'Selesai' | 'Ditolak';
 
 const TransactionsScreen = () => {
     /* ================= STATE ================= */
@@ -53,21 +45,39 @@ const TransactionsScreen = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedTab, setSelectedTab] =
-        useState<'All' | 'Borrowing' | 'Returned'>('All');
+    const [selectedTab, setSelectedTab] = useState<TabType>('All');
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-    /* ================= FETCH DATA ================= */
-    const fetchTransactions = async () => {
+    /* ================= FETCH DATA DENGAN FILTER STATUS ================= */
+    const fetchTransactions = async (statusFilter?: TabType) => {
         if (!refreshing) setLoading(true);
 
         try {
-            console.log('[Transaction] Request API...');
+            let url = '/api/borrowing/user/1';
 
-            const response = await api.get(
-                '/api/borrowing/user/1'
-                // TODO: userId masih hardcoded, nanti ambil dari auth context
-            );
+            // Jika bukan "All", gunakan endpoint filter by status
+            if (statusFilter && statusFilter !== 'All') {
+                // Map UI Tab ke API status (lowercase)
+                const statusMap: Record<TabType, string> = {
+                    'All': '',
+                    'Booked': 'booked',
+                    'Diproses': 'diproses',
+                    'Dipinjam': 'dipinjam',
+                    'Dikembalikan': 'dikembalikan',
+                    'Selesai': 'selesai',
+                    'Ditolak': 'ditolak'
+                };
 
+                const apiStatus = statusMap[statusFilter];
+                if (apiStatus) {
+                    url = `/api/borrowing/status/${apiStatus}`;
+                    console.log(`🔍 Filter by status: ${apiStatus}`);
+                }
+            }
+
+            console.log(`[Transaction] Request API: ${url}`);
+
+            const response = await api.get(url);
             const apiResponse = response.data;
 
             let cleanData: any[] = [];
@@ -77,6 +87,8 @@ const TransactionsScreen = () => {
                 cleanData = apiResponse.data;
             }
 
+            console.log(`📊 Received ${cleanData.length} transactions`);
+
             /* ===== NORMALISASI & TYPE SAFETY ===== */
             const normalizedData: Transaction[] = cleanData.map((item) => ({
                 id: item.id,
@@ -84,11 +96,17 @@ const TransactionsScreen = () => {
                 qrCode: item.qrCode || '',
                 borrowedAt: item.borrowedAt ?? null,
                 returnedAt: item.returnedAt ?? null,
-                userName: item.userName || '',
-                items: item.items || []
+                userName: item.userName || `User ${item.mhsId}`,
+                items: item.items || [],
+                // Simpan data asli untuk debugging
+                originalStatus: item.status,
+                mhsId: item.mhsId,
+                isQrVerified: item.isQrVerified || false,
+                isFaceVerified: item.isFaceVerified || false
             }));
 
             setTransactions(normalizedData);
+            setIsInitialLoad(false);
 
         } catch (error: any) {
             console.error('[Transaction] Error:', error.message);
@@ -101,47 +119,62 @@ const TransactionsScreen = () => {
     /* ================= SCREEN FOCUS ================= */
     useFocusEffect(
         useCallback(() => {
-            fetchTransactions();
+            fetchTransactions('All'); // Load semua data pertama kali
         }, [])
     );
 
+    /* ================= EFFECT UNTUK TAB CHANGE ================= */
+    useEffect(() => {
+        if (!isInitialLoad) {
+            fetchTransactions(selectedTab);
+        }
+    }, [selectedTab]);
+
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchTransactions();
-    }, []);
+        fetchTransactions(selectedTab);
+    }, [selectedTab]);
 
-    /* ================= FILTERING ================= */
+    /* ================= FILTERING (FALLBACK JIKA API FILTER TIDAK BEKERJA) ================= */
     const filteredTransactions = useMemo(() => {
-        return transactions.filter((item) => {
+        if (selectedTab === 'All') {
+            return transactions; // Tampilkan semua
+        }
 
-            /* FILTER TAB */
-            let statusMatch = true;
-            if (selectedTab === 'Borrowing') {
-                statusMatch = BORROWING_STATUS.includes(item.status);
-            } else if (selectedTab === 'Returned') {
-                statusMatch = RETURNED_STATUS.includes(item.status);
+        // Filter di frontend sebagai fallback
+        return transactions.filter(item => {
+            const itemStatus = item.status.toLowerCase();
+            const tabStatus = selectedTab.toLowerCase();
+
+            // Handle "Dikembalikan" vs "Returned" jika perlu
+            if (selectedTab === 'Dikembalikan') {
+                return itemStatus === 'dikembalikan' || itemStatus === 'returned';
             }
 
-            /* FILTER SEARCH */
-            let searchMatch = true;
-            if (searchQuery) {
-                const query = searchQuery.toLowerCase();
-
-                const searchFields = [
-                    item.qrCode,
-                    String(item.id),
-                    item.status,
-                    ...(item.items || []).map(i => i.equipmentName)
-                ];
-
-                searchMatch = searchFields.some(text =>
-                    String(text).toLowerCase().includes(query)
-                );
-            }
-
-            return statusMatch && searchMatch;
+            return itemStatus === tabStatus;
         });
     }, [transactions, selectedTab, searchQuery]);
+
+    /* ================= FINAL FILTER DENGAN SEARCH ================= */
+    const finalFilteredTransactions = useMemo(() => {
+        if (!searchQuery) return filteredTransactions;
+
+        const query = searchQuery.toLowerCase();
+        return filteredTransactions.filter((item) => {
+            const searchFields = [
+                item.qrCode,
+                `TXN-${item.id}`,
+                String(item.id),
+                item.status,
+                item.userName,
+                ...(item.items || []).map(i => i.equipmentName || '')
+            ];
+
+            return searchFields.some(text =>
+                String(text).toLowerCase().includes(query)
+            );
+        });
+    }, [filteredTransactions, searchQuery]);
 
     /* ================= UI ================= */
     return (
@@ -153,10 +186,14 @@ const TransactionsScreen = () => {
                 setSearchQuery={setSearchQuery}
                 selectedTab={selectedTab}
                 setSelectedTab={setSelectedTab}
+                onTabChange={(tab) => {
+                    setSelectedTab(tab);
+                    // Tidak perlu fetchTransactions di sini karena sudah ada useEffect
+                }}
             />
 
             <TransactionList
-                data={filteredTransactions}
+                data={finalFilteredTransactions}
                 loading={loading}
                 refreshing={refreshing}
                 onRefresh={onRefresh}

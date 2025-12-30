@@ -2,7 +2,6 @@
 import axios from "axios";
 import { getApiBaseUrl } from "./apiBase";
 
-// **INI SYNC!**
 const baseURL = getApiBaseUrl();
 console.log("[api] baseURL =", baseURL);
 

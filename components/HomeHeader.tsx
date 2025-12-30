@@ -2,11 +2,9 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { FontAwesome, Ionicons } from '@expo/vector-icons'; // Library ikon vektor
+import { FontAwesome, Ionicons } from '@expo/vector-icons'; 
 
-// --- DEFINISI TIPE PROPS ---
-// Ini adalah "Kontrak". Komponen ini mewajibkan komponen Induk (Home)
-// untuk mengirimkan data-data di bawah ini. Jika kurang, akan error (merah).
+
 type HomeHeaderProps = {
     searchQuery: string;                    // Teks yang sedang dicari
     setSearchQuery: (text: string) => void; // Fungsi untuk mengubah teks pencarian
@@ -23,8 +21,7 @@ const HomeHeader = ({
     setSelectedCategory
 }: HomeHeaderProps) => {
 
-    // Fungsi sederhana untuk menangani klik tombol notifikasi
-    // Saat ini hanya memunculkan Alert, nanti bisa diganti navigasi ke halaman Notifikasi.
+
     const handleNotificationPress = () => {
         Alert.alert("Notifications", "You have no new notifications.");
     };

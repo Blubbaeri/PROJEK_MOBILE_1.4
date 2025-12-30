@@ -3,52 +3,53 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 export default function BookingStatus({ status }: { status: string }) {
-    // ⭐ UPDATE LOGIC STATUS BARU
-    const getStatusConfig = (status: string) => {
-        const statusLower = status?.toLowerCase() || '';
 
+    // ✅ NORMALIZED STATUS DI LEVEL COMPONENT
+    const s = status?.toLowerCase() || '';
+
+    const getStatusConfig = (statusLower: string) => {
         switch (statusLower) {
             case 'booked':
                 return {
-                    bgColor: '#FFF4E5',  // Orange light
-                    textColor: '#FF9800', // Orange
+                    bgColor: '#FFF4E5',
+                    textColor: '#FF9800',
                     displayText: 'BOOKED',
-                    icon: '📋' // atau pakai icon library
+                    icon: '📋'
                 };
             case 'diproses':
                 return {
-                    bgColor: '#E8F5E9',   // Green light  
-                    textColor: '#4CAF50',  // Green
+                    bgColor: '#E8F5E9',
+                    textColor: '#4CAF50',
                     displayText: 'DIPROSES',
                     icon: '⏳'
                 };
             case 'dipinjam':
                 return {
-                    bgColor: '#E3F2FD',   // Blue light
-                    textColor: '#2196F3',  // Blue
+                    bgColor: '#E3F2FD',
+                    textColor: '#2196F3',
                     displayText: 'DIPINJAM',
                     icon: '✅'
                 };
             case 'ditolak':
                 return {
-                    bgColor: '#FFEBEE',   // Red light
-                    textColor: '#F44336',  // Red
+                    bgColor: '#FFEBEE',
+                    textColor: '#F44336',
                     displayText: 'DITOLAK',
                     icon: '❌'
                 };
-            case 'selesai':
-                return {
-                    bgColor: '#F5F5F5',   // Gray light
-                    textColor: '#757575',  // Gray
-                    displayText: 'SELESAI',
-                    icon: '🏁'
-                };
             case 'dikembalikan':
                 return {
-                    bgColor: '#FFF8E1',   // Yellow light
-                    textColor: '#FFC107',  // Yellow
+                    bgColor: '#FFF8E1',
+                    textColor: '#FFC107',
                     displayText: 'DIKEMBALIKAN',
                     icon: '↩️'
+                };
+            case 'selesai':
+                return {
+                    bgColor: '#F5F5F5',
+                    textColor: '#757575',
+                    displayText: 'SELESAI',
+                    icon: '🏁'
                 };
             default:
                 return {
@@ -60,11 +61,12 @@ export default function BookingStatus({ status }: { status: string }) {
         }
     };
 
-    const statusConfig = getStatusConfig(status);
+    const statusConfig = getStatusConfig(s);
 
     return (
         <View style={styles.card}>
             <Text style={styles.label}>Status Peminjaman</Text>
+
             <View style={[styles.badge, { backgroundColor: statusConfig.bgColor }]}>
                 <Text style={styles.icon}>{statusConfig.icon}</Text>
                 <Text style={[styles.statusText, { color: statusConfig.textColor }]}>
@@ -72,16 +74,17 @@ export default function BookingStatus({ status }: { status: string }) {
                 </Text>
             </View>
 
-            {/* ⭐ TAMBAH DESKRIPSI STATUS */}
             <Text style={styles.description}>
-                {status === 'Booked' ? 'Menunggu scan QR di lab' :
-                    status === 'Diproses' ? 'Sedang diproses admin' :
-                        status === 'Dipinjam' ? 'Alat sudah bisa diambil' :
-                            'Transaksi selesai'}
+                {s === 'booked' ? 'Menunggu scan QR di lab' :
+                    s === 'diproses' ? 'Sedang diproses admin' :
+                        s === 'dipinjam' ? 'Alat sudah bisa diambil' :
+                            s === 'dikembalikan' ? 'Menunggu konfirmasi selesai' :
+                                'Transaksi selesai'}
             </Text>
         </View>
     );
 }
+
 
 const styles = StyleSheet.create({
     card: {

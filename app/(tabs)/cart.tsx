@@ -58,7 +58,7 @@ export default function CartScreen() {
                     psaId: item.id,  // ⭐ INI YANG BENAR!
                     quantity: item.quantity
                 }))
-                // ⭐ JANGAN TAMBAH "status" - backend akan set otomatis
+       
             };
 
             console.log('📤 Mengirim data ke backend:', borrowingData);
@@ -80,20 +80,7 @@ export default function CartScreen() {
             router.push({
                 pathname: '/(tabs)/booking-qr',
                 params: {
-                    data: JSON.stringify({
-                        id: result.data.id,
-                        studentId: borrowingData.mhsId,
-                        qrCode: result.data.qrCode,
-                        status: result.data.status || "Booked",
-                        items: cartItems.map(item => ({
-                            equipmentId: item.id,
-                            equipmentName: item.name,
-                            quantity: item.quantity,
-                            image: item.image
-                        })),
-                        qrExpiry: result.data.qrExpiry,
-                        timestamp: new Date().toISOString()
-                    })
+                    id: result.data.id  
                 }
             });
 

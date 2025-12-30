@@ -58,14 +58,14 @@ function AppTabsLayout() {
                 }}
             >
                 <Tabs.Screen
-                    name="index" // <-- Sesuaikan dengan nama file kamu
+                    name="index"
                     options={{
-                        title: 'Equipment', // Judul tab tetap Equipment
-                        tabBarIcon: ({ color }) => <FontAwesome size={24} name="flask" color={color} />,
+                        title: 'Equipment', 
+                        tabBarIcon: ({ color }) => <FontAwesome size={24} name="wrench" color={color} />,
                     }}
                 />
 
-                {/* 2. TRANSACTION (Pastikan nama file transaction.tsx TANPA 's') */}
+                {/* 2. TRANSACTION */}
                 <Tabs.Screen
                     name="transaction"
                     options={{
@@ -74,7 +74,7 @@ function AppTabsLayout() {
                     }}
                 />
 
-                {/* 3. CART (Pastikan ada file cart.tsx) */}
+                {/* 3. CART */}
                 <Tabs.Screen
                     name="cart"
                     options={{
@@ -92,10 +92,7 @@ function AppTabsLayout() {
                             </View>
                         ),
                     }}
-                />
-
-                {/* --- HALAMAN TERSEMBUNYI (Hidden Tabs) --- */}
-                {/* Agar navigasi router.push('/(tabs)/booking-qr') berhasil */}
+                />     
 
                 <Tabs.Screen
                     name="booking-qr"
@@ -107,6 +104,15 @@ function AppTabsLayout() {
 
                 <Tabs.Screen
                     name="success"
+                    options={{
+                        href: null, // Sembunyikan dari menu bawah
+                        tabBarStyle: { display: 'none' },
+                    }}
+                />
+
+
+                <Tabs.Screen
+                    name="transaction-detail"
                     options={{
                         href: null, // Sembunyikan dari menu bawah
                         tabBarStyle: { display: 'none' },

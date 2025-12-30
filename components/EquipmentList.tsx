@@ -21,39 +21,6 @@ export default function EquipmentList({
     onAddToCart
 }: EquipmentListProps) {
 
-    // ========== PERBAIKAN: PROSES DATA DULU ==========
-    // Data dari backend mungkin tidak punya field "stock"
-    // Kita harus normalisasi data sebelum dikirim ke EquipmentCard
-
-    const processedData = React.useMemo(() => {
-        if (!data || data.length === 0) return [];
-
-        return data.map(item => {
-            // Cari field stock dengan berbagai kemungkinan nama
-            const stockValue =
-                item.stock !== undefined ? item.stock :
-                    item.quantity !== undefined ? item.quantity :
-                        item.available !== undefined ? item.available :
-                            item.totalStock !== undefined ? item.totalStock :
-                                item.stok !== undefined ? item.stok : // alternatif ejaan
-                                    0;
-
-            // DEBUG: Log jika stock tidak ditemukan
-            if (stockValue === 0) {
-                console.log(`Item ${item.id} - ${item.name} has no stock field`);
-                console.log('Item keys:', Object.keys(item));
-            }
-
-            // Return data dengan field stock yang sudah dipastikan ada
-            return {
-                ...item,
-                stock: stockValue
-            };
-        });
-    }, [data]);
-
-    // ========== REST OF THE CODE ==========
-
     if (loading) {
         return (
             <View style={styles.center}>
@@ -62,8 +29,8 @@ export default function EquipmentList({
         );
     }
 
-    // Gunakan processedData, bukan data langsung
-    if (!processedData || processedData.length === 0) {
+    // Data sudah di-normalize di HomeScreen, jadi langsung cek saja
+    if (!data || data.length === 0) {
         return (
             <View style={styles.center}>
                 <Text style={{ color: 'white' }}>No equipment found.</Text>
@@ -73,7 +40,7 @@ export default function EquipmentList({
 
     return (
         <FlatList
-            data={processedData} // <-- GUNAKAN processedData, bukan data
+            data={data} // ← GUNAKAN DATA LANGSUNG (sudah dinormalize)
             keyExtractor={(item) => item.id.toString()}
             numColumns={2}
             contentContainerStyle={{ padding: 10, paddingBottom: 100 }}
@@ -81,7 +48,7 @@ export default function EquipmentList({
             onRefresh={onRefresh}
             renderItem={({ item }) => (
                 <EquipmentCard
-                    data={item} // Sekarang item sudah punya field stock
+                    data={item} // ← Item sudah punya field id, name, stock
                     onAdd={() => onAddToCart(item)}
                 />
             )}
