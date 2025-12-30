@@ -3,6 +3,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { useRouter } from 'expo-router'; // 1. Tambahkan import router
 
 type CartHeaderProps = {
     totalItems: number;
@@ -10,6 +11,9 @@ type CartHeaderProps = {
 };
 
 const CartHeader = ({ totalItems, onClearCart }: CartHeaderProps) => {
+
+    // 2. Inisialisasi router
+    const router = useRouter();
 
     // Fungsi dummy notifikasi
     const handleNotificationPress = () => {
@@ -45,10 +49,14 @@ const CartHeader = ({ totalItems, onClearCart }: CartHeaderProps) => {
                         {totalItems > 0 && <View style={styles.notifDot} />}
                     </TouchableOpacity>
 
-                    {/* Ikon User */}
-                    <View style={styles.avatarPlaceholder}>
+                    {/* 3. UBAH DISINI: Ikon User sekarang bisa diklik ke Profile */}
+                    <TouchableOpacity
+                        style={styles.avatarPlaceholder}
+                        onPress={() => router.push('/profile')}
+                        activeOpacity={0.7}
+                    >
                         <FontAwesome name="user" size={18} color="#5B4DBC" />
-                    </View>
+                    </TouchableOpacity>
                 </View>
             </View>
         </View>

@@ -51,7 +51,6 @@ const TransactionsScreen = () => {
     /* ================= FETCH DATA DENGAN FILTER STATUS ================= */
     const fetchTransactions = async (statusFilter?: TabType) => {
         if (!refreshing) setLoading(true);
-
         try {
             let url = '/api/borrowing/user/1';
 
