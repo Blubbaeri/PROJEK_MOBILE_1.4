@@ -158,15 +158,25 @@ export default function HomeScreen() {
     // HomeScreen.tsx
     const handleAddToCart = async (item: any) => {
         try {
-            // Gunakan equipmentId jika perlu, tapi id sudah di-normalize
-            console.log(`🎯 Adding ${item.name} (equipmentId=${item.id}) to cart`);
+            console.log(`🎯 Adding ${item.name} to cart`);
+
+            // Debug: cek item structure
+            console.log('📦 Item details:', {
+                id: item.id,
+                equipmentId: item.equipmentId,
+                name: item.name,
+                currentStock: item.stock,
+                availableStock: item.availableStock
+            });
 
             // 1. Get available PSA IDs
-            // Ganti item.id dengan item.equipmentId jika endpoint butuh equipmentId
-            const res = await api.get(`/api/equipment/${item.equipmentId || item.id}/available-psa`);
+            const equipmentId = item.equipmentId || item.id;
+            console.log(`🔍 Calling API: /api/equipment/${equipmentId}/available-psa`);
+
+            const res = await api.get(`/api/equipment/${equipmentId}/available-psa`);
             const availableData = res.data?.data;
 
-            console.log('📊 Available PSA IDs:', availableData);
+            console.log('📊 API Response:', availableData);
 
             if (!availableData || availableData.availableStock <= 0) {
                 Toast.show({
@@ -179,43 +189,57 @@ export default function HomeScreen() {
 
             // 2. Ambil PSA_ID pertama yang available
             const psaId = availableData.availablePsaIds[0];
+            console.log(`✅ Using PSA_ID: ${psaId}`);
 
-            console.log(`✅ Using PSA_ID: ${psaId} for ${item.name}`);
-
-            // 3. Add to cart dengan data lengkap
+            // 3. Add to cart
             addToCart({
-                id: psaId,                    // PSA_ID untuk checkout
-                perId: item.equipmentId || item.id,  // PER_ID/equipmentId untuk reference
+                id: psaId,
+                perId: equipmentId,
                 name: item.name,
                 price: 0,
                 quantity: 1,
                 image: item.image,
-                stock: availableData.availableStock, // Available stock
+                stock: availableData.availableStock,
                 availablePsaIds: availableData.availablePsaIds
             });
 
-            // 4. Update local state
+            // 4. FIX: Update local state dengan LOGIC YANG BENAR
             setEquipment(prev =>
-                prev.map(eq =>
-                    eq.id === item.id ? {
-                        ...eq,
-                        stock: availableData.availableStock - 1
-                    } : eq
-                )
+                prev.map(eq => {
+                    if (eq.id === item.id) {
+                        const currentStock = eq.stock || eq.availableStock || 0;
+                        const newStock = Math.max(0, currentStock - 1);
+
+                        console.log(`🔄 Updating ${eq.name}: ${currentStock} → ${newStock}`);
+
+                        return {
+                            ...eq,
+                            stock: newStock,
+                            availableStock: newStock
+                        };
+                    }
+                    return eq;
+                })
             );
 
             Toast.show({
                 type: 'success',
                 text1: 'Berhasil',
-                text2: `${item.name} masuk keranjang (Unit #${psaId})`
+                text2: `${item.name} masuk keranjang`
             });
 
-        } catch (error) {
-            console.error('❌ Error adding to cart:', error);
+        } catch (error: any) {
+            console.error('❌ FULL ERROR DETAILS:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                url: error.config?.url
+            });
+
             Toast.show({
                 type: 'error',
                 text1: 'Gagal',
-                text2: 'Gagal menambah ke keranjang'
+                text2: error.response?.data?.message || 'Gagal menambah ke keranjang'
             });
         }
     };
