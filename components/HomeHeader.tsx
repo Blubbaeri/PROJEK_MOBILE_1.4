@@ -3,6 +3,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons'; 
+import { router } from 'expo-router';
+
 
 
 type HomeHeaderProps = {

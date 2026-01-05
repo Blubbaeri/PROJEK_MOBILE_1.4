@@ -36,8 +36,8 @@ export default function CartScreen() {
             "Konfirmasi Checkout",
             `Pinjam ${totalItems} alat ini sekarang?`,
             [
-                { text: "Nanti Dulu", style: "cancel" },
-                { text: "Gas, Pinjam!", onPress: processCheckout }
+                { text: "Tidak", style: "cancel" },
+                { text: "Iya", onPress: processCheckout }
             ]
         );
     };
@@ -53,21 +53,20 @@ export default function CartScreen() {
 
             // ⭐ FORMAT YANG BENAR SESUAI SWAGGER
             const borrowingData = {
-                mhsId: 1, // Hardcode dulu
+                mhsId: 1, // Hardcode 
                 items: cartItems.map(item => ({
-                    psaId: item.id,  // ⭐ INI YANG BENAR!
+                    psaId: item.id,  
                     quantity: item.quantity
                 }))
        
             };
 
-            console.log('📤 Mengirim data ke backend:', borrowingData);
 
             const response = await api.post('/api/borrowing', borrowingData, {
                 timeout: 10000
             });
 
-            console.log('✅ Response dari backend:', response.data);
+            console.log('Response dari backend:', response.data);
 
             const result = response.data;
 
@@ -85,11 +84,11 @@ export default function CartScreen() {
             });
 
         } catch (error: any) {
-            console.error("❌ Checkout error:", error);
+            console.error("Checkout error:", error);
 
             // ⭐ DETAILED ERROR LOGGING
             if (error.response) {
-                console.log('📊 Error details:', {
+                console.log('Error details:', {
                     status: error.response.status,
                     data: error.response.data,
                     requestData: JSON.parse(error.config?.data || '{}')

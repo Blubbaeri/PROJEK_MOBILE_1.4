@@ -1,3 +1,5 @@
+//app/profile.
+
 import React, { useState } from 'react';
 import {
     View,
@@ -115,7 +117,6 @@ const ProfileScreen = () => {
                     {/* JARAK ANTAR TOMBOL */}
                     <View style={{ height: 15 }} />
 
-                    {/* TOMBOL 2: KEMBALI (Desain Sama dengan Edit Profile) */}
                     <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8}>
                         <LinearGradient
                             colors={['#5B4DBC', '#8B80F8']}

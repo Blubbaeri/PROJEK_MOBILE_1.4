@@ -276,7 +276,7 @@ export default function TransactionDetailScreen() {
 
     // Pengecekan untuk QR dan aktif status (case insensitive)
     const statusLower = transaction.status.toLowerCase();
-    const canShowQr = ['booked', 'diproses', 'dipinjam'].includes(statusLower);
+    const canShowQr = ['booked', 'diproses', 'dipinjam','dikembalikan',].includes(statusLower);
     const isActive = statusLower === 'dipinjam';
     const items = transaction.items || [];
 

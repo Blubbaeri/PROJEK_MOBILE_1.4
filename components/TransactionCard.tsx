@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';;
+import { FontAwesome } from '@expo/vector-icons'; // ← FIXED: HAPUS FontAwesome5 DAN SATU ;
 import { useRouter } from 'expo-router';
 
 /* =====================
@@ -213,7 +213,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
                     )}
                     {transaction.isFaceVerified && (
                         <View style={styles.verificationBadge}>
-                            <FontAwesome5 name="user-check" size={10} color="#2196F3" /> {/* ← PAKAI FontAwesome5 */}
+                            <FontAwesome name="user-circle" size={10} color="#2196F3" />
                             <Text style={styles.verificationText}>Face Verified</Text>
                         </View>
                     )}
