@@ -191,10 +191,10 @@ export default function HomeScreen() {
             const psaId = availableData.availablePsaIds[0];
             console.log(`✅ Using PSA_ID: ${psaId}`);
 
-            // 3. Add to cart
+            // 3. Add to cart - PERBAIKAN DI SINI!
             addToCart({
-                id: psaId,
-                perId: equipmentId,
+                id: psaId,                    // PSA_ID untuk identifikasi di cart
+                perId: equipmentId,           // PER_ID untuk API booking
                 name: item.name,
                 price: 0,
                 quantity: 1,
@@ -203,19 +203,19 @@ export default function HomeScreen() {
                 availablePsaIds: availableData.availablePsaIds
             });
 
-            // 4. FIX: Update local state dengan LOGIC YANG BENAR
+            // 4. Update local state - PERBAIKAN DI SINI JUGA!
             setEquipment(prev =>
                 prev.map(eq => {
                     if (eq.id === item.id) {
-                        const currentStock = eq.stock || eq.availableStock || 0;
-                        const newStock = Math.max(0, currentStock - 1);
+                        const newStock = Math.max(0, (eq.availableStock || 0) - 1);
 
-                        console.log(`🔄 Updating ${eq.name}: ${currentStock} → ${newStock}`);
+                        console.log(`🔄 Updating ${eq.name}: ${eq.availableStock} → ${newStock}`);
 
                         return {
                             ...eq,
                             stock: newStock,
-                            availableStock: newStock
+                            availableStock: newStock,
+                            status: newStock > 0 ? 'available' : 'unavailable'  // UPDATE STATUS JUGA!
                         };
                     }
                     return eq;
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F5F5F7',
         borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
+        borderTopRightRadius: 30, 
         paddingTop: 10
     },
     center: {

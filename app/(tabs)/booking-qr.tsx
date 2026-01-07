@@ -31,7 +31,10 @@ interface BorrowingData {
     status: string;
     items: any[];
     borrowedAt?: string;
+    semuaAlatHabis?: boolean; // ⬅️ TAMBAH INI
+    alatHabisList?: string[]; // ⬅️ TAMBAH INI
 }
+
 interface DetailItem {
     equipmentName?: string;
     name?: string;
@@ -67,6 +70,7 @@ export default function BookingQr() {
     }, []);
 
     /* START POLLING */
+    /* START POLLING */
     const startPolling = useCallback((borrowId: number) => {
         if (pollingRef.current) clearInterval(pollingRef.current);
 
@@ -79,25 +83,58 @@ export default function BookingQr() {
 
                 if (!newData || !newData.status) return;
 
+                // ⭐ CEK APAKAH STATUS BERUBAH
                 if (borrowingDataRef.current?.status !== newData.status) {
                     setBorrowingData(prev => {
                         if (!prev) return null;
                         return {
                             ...prev,
                             ...newData,
-                            items: prev.items
+                            items: prev.items,
+                            semuaAlatHabis: newData.semuaAlatHabis || false,
+                            alatHabisList: newData.alatHabisList || []
                         };
                     });
 
-                    // LOGIC BARU: LANJUT POLLING SAMPAI SELESAI
+                    // ⭐ LOGIC STATUS DENGAN CEK ALAT HABIS
                     const currentStatus = newData.status.toLowerCase();
+
+                    // ⭐ KALAU SELESAI KARENA ALAT HABIS
+                    if (currentStatus === 'selesai' && newData.semuaAlatHabis) {
+                        // TAMPILKAN ALERT KHUSUS
+                        Alert.alert(
+                            'Alat Habis',
+                            `Maaf, semua alat yang anda booking sudah habis:\n\n${newData.alatHabisList?.join('\n') || 'Tidak ada info alat'
+                            }`,
+                            [
+                                {
+                                    text: 'OK',
+                                    onPress: () => {
+                                        stopPolling();
+                                        setShowCompletionAlert(false);
+                                    }
+                                }
+                            ]
+                        );
+                        stopPolling();
+                        return;
+                    }
+
+                    // ⭐ KALAU BEBERAPA ALAT HABIS TAPI MASIH ADA YANG BERHASIL
+                    if (newData.alatHabisList && newData.alatHabisList.length > 0) {
+                        Alert.alert(
+                            'Beberapa Alat Habis',
+                            `Alat berikut sudah habis:\n\n${newData.alatHabisList.join('\n')
+                            }\n\nStatus: ${newData.status}`,
+                            [{ text: 'OK' }]
+                        );
+                    }
+
                     const continuePollingStatuses = ['booked', 'diproses', 'dipinjam', 'dikembalikan'];
 
                     if (continuePollingStatuses.includes(currentStatus)) {
-                        // Masih dalam proses, lanjut polling
                         console.log(`Status ${currentStatus} - Lanjut polling...`);
                     } else {
-                        // Status final: Selesai, Ditolak, dll
                         if (currentStatus === 'selesai') {
                             setShowCompletionAlert(true);
                             setTimeout(() => setShowCompletionAlert(false), 5000);
@@ -113,6 +150,7 @@ export default function BookingQr() {
     }, [stopPolling]);
 
     /*  PULL TO REFRESH */
+    /*  PULL TO REFRESH */
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
 
@@ -127,12 +165,12 @@ export default function BookingQr() {
             }
 
             // 2. Ambil detail items terbaru
-            const detailRes = await api.get(`api/borrowing-detail/borrowing/${borrowingId}`);
+            const detailRes = await api.get(`/api/borrowing-detail/borrowing/${borrowingId}`);
             const detailData = detailRes.data?.data || [];
 
             // 3. Gabungkan data dengan GROUPING
             const itemMap = new Map<string, number>();
-            detailData.forEach((item: DetailItem) => {  // ← TAMBAH TYPE
+            detailData.forEach((item: any) => {
                 const name = item.equipmentName || item.name || 'Unknown';
                 itemMap.set(name, (itemMap.get(name) || 0) + 1);
             });
@@ -144,10 +182,28 @@ export default function BookingQr() {
 
             const fullData = {
                 ...headerData,
-                items: groupedItems
+                items: groupedItems,
+                semuaAlatHabis: headerData.semuaAlatHabis || false,
+                alatHabisList: headerData.alatHabisList || []
             };
 
             setBorrowingData(fullData);
+
+            // ⭐ TAMPILKAN ALERT JIKA ALAT HABIS
+            if (headerData.semuaAlatHabis) {
+                Alert.alert(
+                    'Alat Habis',
+                    `Maaf, semua alat sudah habis:\n\n${headerData.alatHabisList?.join('\n') || 'Tidak ada info'
+                    }`,
+                    [{ text: 'OK' }]
+                );
+            } else if (headerData.alatHabisList && headerData.alatHabisList.length > 0) {
+                Alert.alert(
+                    'Beberapa Alat Habis',
+                    `Alat berikut habis:\n${headerData.alatHabisList.join('\n')}`,
+                    [{ text: 'OK' }]
+                );
+            }
 
             // Jika status Booked, restart polling
             if (headerData.status === 'Booked') {
@@ -166,6 +222,7 @@ export default function BookingQr() {
         }
     }, [borrowingId, stopPolling, startPolling]);
 
+
     /* FETCH INITIAL DATA */
     useEffect(() => {
         if (!borrowingId) return;
@@ -181,13 +238,35 @@ export default function BookingQr() {
                     return;
                 }
 
+                // ⭐ CEK APAKAH ADA INFO ALAT HABIS LANGSUNG DARI HEADER
+                const semuaAlatHabis = headerData.semuaAlatHabis || false;
+                const alatHabisList = headerData.alatHabisList || [];
+
+                // ⭐ TAMPILKAN ALERT JIKA ALAT HABIS
+                if (semuaAlatHabis) {
+                    Alert.alert(
+                        'Alat Habis',
+                        `Maaf, semua alat yang anda booking sudah habis:\n\n${alatHabisList.join('\n') || 'Tidak ada info'
+                        }`,
+                        [{ text: 'OK' }]
+                    );
+                } else if (alatHabisList.length > 0) {
+                    Alert.alert(
+                        'Beberapa Alat Habis',
+                        `Alat berikut sudah habis:\n\n${alatHabisList.join('\n')}`,
+                        [{ text: 'OK' }]
+                    );
+                }
+
                 // 2. AMBIL DATA DETAIL ITEMS
-                const detailRes = await api.get(`api/borrowing-detail/borrowing/${borrowingId}`);
+                const detailRes = await api.get(`/api/borrowing-detail/borrowing/${borrowingId}`);
                 const detailData = detailRes.data?.data || [];
+
+                console.log('📦 Detail data from API:', detailData);
 
                 // 3. GABUNGKAN DATA DENGAN GROUPING
                 const itemMap = new Map<string, number>();
-                detailData.forEach((item: DetailItem) => {  
+                detailData.forEach((item: any) => {
                     const name = item.equipmentName || item.name || 'Unknown';
                     itemMap.set(name, (itemMap.get(name) || 0) + 1);
                 });
@@ -199,9 +278,12 @@ export default function BookingQr() {
 
                 const fullData = {
                     ...headerData,
-                    items: groupedItems
+                    items: groupedItems,
+                    semuaAlatHabis, // ⬅️ SIMPAN DATA INI
+                    alatHabisList   // ⬅️ SIMPAN DATA INI
                 };
 
+                console.log('✅ Full data prepared:', fullData);
                 setBorrowingData(fullData);
 
                 if (headerData.status === 'Booked') {
@@ -222,7 +304,7 @@ export default function BookingQr() {
     const handleBack = () => {
         stopPolling();
         router.back();
-        router.push("/(tabs)/transaction-detail");
+        // atau router.push("/(tabs)"); untuk balik ke home
     };
 
     const refreshStatus = async () => {

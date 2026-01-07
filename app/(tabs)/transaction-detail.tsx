@@ -8,7 +8,8 @@ import {
     ScrollView,
     TouchableOpacity,
     StatusBar,
-    Alert
+    Alert,
+    ActivityIndicator
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -103,36 +104,25 @@ export default function TransactionDetailScreen() {
 
         pollingRef.current = setInterval(async () => {
             try {
-                const res = await api.get(`api/borrowing-detail/borrowing/${id}`);
-                const dataArray = res.data?.data;
+                // ⭐ PAKAI ENDPOINT YANG SAMA DENGAN FETCH DATA
+                const res = await api.get(`/api/borrowing/${id}`);
+                const borrowingData = res.data?.data;
 
-                if (!Array.isArray(dataArray) || dataArray.length === 0) return;
+                if (!borrowingData) return;
 
-                // GROUPING juga di polling
-                const itemMap = new Map<string, number>();
-                dataArray.forEach(item => {
-                    const name = item.equipmentName;
-                    const qty = item.quantity || 1;
-                    if (itemMap.has(name)) {
-                        itemMap.set(name, itemMap.get(name)! + qty);
-                    } else {
-                        itemMap.set(name, qty);
-                    }
-                });
-
-                const groupedItems: TransactionItem[] = Array.from(itemMap.entries()).map(([equipmentName, quantity]) => ({
-                    equipmentName,
-                    quantity
+                const apiItems = borrowingData.items || [];
+                const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
+                    equipmentName: item.equipmentName || item.EquipmentName || 'Alat',
+                    quantity: item.quantity || 1
                 }));
 
-                const firstItem = dataArray[0];
-                const newStatus = firstItem.status;
+                const newStatus = borrowingData.status;
 
                 if (transactionRef.current?.status !== newStatus) {
                     setTransaction(prev => prev ? {
                         ...prev,
                         status: newStatus,
-                        items: groupedItems // update items juga
+                        items: groupedItems
                     } : prev);
 
                     if (newStatus !== 'Booked') {
@@ -151,76 +141,58 @@ export default function TransactionDetailScreen() {
 
         const fetchData = async () => {
             try {
-                // ============ 1. AMBIL STATUS DARI ENDPOINT LIST ============
-                const borrowingRes = await api.get(`/api/borrowing/${transactionId}`);
-                const borrowingData = borrowingRes.data?.data;
+                console.log(`🔍 Fetching transaction ID: ${transactionId}`);
 
-                console.log('📋 Data transaksi utama:', borrowingData);
+                // ⭐ PAKAI ENDPOINT YANG BENAR: /api/borrowing/{id}
+                const response = await api.get(`/api/borrowing/${transactionId}`);
+                console.log('📦 API Response:', response.data);
+
+                const borrowingData = response.data?.data;
 
                 if (!borrowingData) {
                     Alert.alert('Error', 'Data transaksi tidak ditemukan');
                     setTransaction(null);
+                    setLoading(false);
                     return;
                 }
 
-                // ============ 2. AMBIL ITEMS DARI ENDPOINT DETAIL ============
-                const detailRes = await api.get(`/api/borrowing-detail/borrowing/${transactionId}`);
-                const detailArray = detailRes.data?.data;
+                // ⭐ ITEMS SUDAH ADA DI RESPONSE INI!
+                const apiItems = borrowingData.items || [];
+                console.log('📋 Items dari API:', apiItems);
 
-                console.log('📦 Raw detail items:', detailArray);
-
-                // ============ 3. GROUPING ITEMS ============
-                const itemMap = new Map<string, number>();
-
-                if (Array.isArray(detailArray)) {
-                    detailArray.forEach((item, index) => {
-                        const name = item.equipmentName;
-                        const qty = 1; // Karena setiap baris = 1 unit
-
-                        console.log(`📦 Item ${index}: ${name} - Qty: ${qty}`);
-
-                        if (itemMap.has(name)) {
-                            const currentQty = itemMap.get(name)!;
-                            itemMap.set(name, currentQty + qty);
-                        } else {
-                            itemMap.set(name, qty);
-                        }
-                    });
-                }
-
-                const groupedItems: TransactionItem[] = Array.from(itemMap.entries()).map(([equipmentName, quantity]) => ({
-                    equipmentName,
-                    quantity
+                // Transform items
+                const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
+                    equipmentName: item.equipmentName || item.EquipmentName || 'Alat',
+                    quantity: item.quantity || 1
                 }));
 
-                console.log('📦 Hasil setelah grouping:', groupedItems);
-
-                // ============ 4. BUAT TRANSACTION OBJECT ============
+                // Buat transaction object
                 const transactionData: Transaction = {
                     id: transactionId,
-                    status: borrowingData.status as TransactionStatus, // ← STATUS DARI ENDPOINT LIST
+                    status: borrowingData.status as TransactionStatus,
                     qrCode: borrowingData.qrCode || '',
                     items: groupedItems,
-                    // Field lain dari borrowingData
                     mhsId: borrowingData.mhsId,
                     borrowedAt: borrowingData.borrowedAt,
                     returnedAt: borrowingData.returnedAt,
                     isQrVerified: borrowingData.isQrVerified,
-                    isFaceVerified: borrowingData.isFaceVerified,
-                    // Field dari detail jika perlu
-                    borrowingCode: borrowingData.borrowingCode || `BORROW-${transactionId}`,
-                    notes: borrowingData.notes
+                    isFaceVerified: borrowingData.isFaceVerified
                 };
 
-                console.log('✅ Transaction data dibuat:', transactionData);
-
+                console.log('✅ Data berhasil di-load:', transactionData);
                 setTransaction(transactionData);
 
                 if (transactionData.status === 'Booked') {
                     startPolling(transactionData.id);
                 }
-            } catch (err) {
-                console.error('❌ Error fetch data:', err);
+
+            } catch (err: any) {
+                console.error('❌ ERROR DETAIL:', {
+                    message: err.message,
+                    response: err.response?.data,
+                    status: err.response?.status
+                });
+
                 Alert.alert('Error', 'Gagal mengambil data transaksi');
             } finally {
                 setLoading(false);
@@ -254,7 +226,14 @@ export default function TransactionDetailScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <TransactionDetailSkeleton />
+                <Text>Memuat data transaksi...</Text>
+                <ActivityIndicator size="large" color="#5B4DBC" />
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={{ marginTop: 20 }}
+                >
+                    <Text style={{ color: '#5B4DBC' }}>Kembali</Text>
+                </TouchableOpacity>
             </View>
         );
     }
