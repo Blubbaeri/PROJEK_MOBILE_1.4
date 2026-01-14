@@ -16,49 +16,105 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // <--- 1. INI PENTING (Import Router)
+import { useRouter } from 'expo-router'; 
 
 export default function LoginScreen() {
-    const router = useRouter(); // <--- 2. Panggil Router
-    const [email, setEmail] = useState('budi@student.simpel.lab');
+    const router = useRouter(); 
+    const [email, setEmail] = useState('admin');
     const [password, setPassword] = useState('123456');
     const [isLoading, setIsLoading] = useState(false);
 
     const { signIn } = useAuth();
 
+    // app/(auth)/login.tsx
     const handleSignIn = async () => {
-        // Validasi Input Kosong
         if (!email || !password) {
-            Alert.alert('Gagal', 'Mohon isi Email dan Password.');
+            Alert.alert('Gagal', 'Mohon isi Username dan Password.');
             return;
         }
 
         setIsLoading(true);
 
         try {
-            // Cek Password Dummy (Harus 123456)
-            if (password === '123456') {
+            console.log('Starting login process...');
 
-                const dummyToken = "eyJhGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy";
+            // 1️⃣ LOGIN KE API - Extract username dari email
+            const username = email.replace('@student.simpel.lab', ''); // "admin"
+            console.log('Username:', username);
 
-                // 1. Simpan status login
-                await signIn(dummyToken);
+            const loginResponse = await fetch('http://10.1.14.15:5234/api/Auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    jenisAplikasi: "public"
+                }),
+            });
 
-                // 2. PAKSA PINDAH HALAMAN (Navigation)
-                // Ini yang bikin tombolnya bereaksi langsung pindah ke Home/Tabs
-                router.replace('/(tabs)');
+            console.log('Login response status:', loginResponse.status);
 
-            } else {
-                Alert.alert(
-                    'Login Gagal',
-                    'Password salah! Coba ketik: 123456'
-                );
+            const loginData = await loginResponse.json();
+            console.log('Login response data:', loginData);
+
+            if (!loginResponse.ok) {
+                throw new Error(loginData.errorMessage || 'Login gagal');
             }
-        } catch (error) {
-            console.error(error);
-            Alert.alert('Error', 'Terjadi kesalahan sistem.');
+
+            const firstToken = loginData.token;
+            console.log('First token received:', firstToken ? 'YES' : 'NO');
+
+            // 2️⃣ GET PERMISSION TOKEN
+            console.log('Getting permission token...');
+            const permissionResponse = await fetch('http://10.1.14.15:5234/api/Auth/getpermission', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${firstToken}`,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    appId: "APP01",
+                    roleId: "ROL23"
+                }),
+            });
+
+            console.log('Permission response status:', permissionResponse.status);
+
+            const permissionData = await permissionResponse.json();
+            console.log('Permission response data:', permissionData);
+
+            if (!permissionResponse.ok) {
+                throw new Error(permissionData.errorMessage || 'Gagal mendapatkan permission');
+            }
+
+            const finalToken = permissionData.token;
+            const permissions = permissionData.listPermission || [];
+
+            console.log('✅ Login berhasil!');
+            console.log('Final token:', finalToken ? 'RECEIVED' : 'MISSING');
+            console.log('Permissions count:', permissions.length);
+
+            // 3️⃣ SIMPAN KE AUTH CONTEXT
+            await signIn(finalToken, permissions);
+            console.log('✅ Token saved to AuthContext');
+
+            // 4️⃣ NAVIGASI KE HOME
+            console.log('✅ Navigating to home...');
+            router.replace('/(tabs)');
+
+        } catch (error: any) {
+            console.error('❌ Login error:', error);
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack
+            });
+            Alert.alert('Login Gagal', error.message || 'Terjadi kesalahan');
         } finally {
-            // Kita set false di sini, tapi kalau sukses biasanya keburu pindah halaman (aman)
             setIsLoading(false);
         }
     };

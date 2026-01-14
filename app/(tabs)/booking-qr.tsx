@@ -11,7 +11,8 @@ import {
     SafeAreaView,
     Platform,
     Alert,
-    RefreshControl  
+    RefreshControl,
+    ActivityIndicator  
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,12 +32,15 @@ interface BorrowingData {
     status: string;
     items: any[];
     borrowedAt?: string;
+    semuaAlatHabis?: boolean; 
+    alatHabisList?: string[]; 
 }
+
 interface DetailItem {
     equipmentName?: string;
     name?: string;
     quantity?: number;
-    [key: string]: any; // Untuk property lain
+    [key: string]: any; 
 }
 
 /*  SCREEN */
@@ -79,25 +83,58 @@ export default function BookingQr() {
 
                 if (!newData || !newData.status) return;
 
+                // CEK APAKAH STATUS BERUBAH
                 if (borrowingDataRef.current?.status !== newData.status) {
                     setBorrowingData(prev => {
                         if (!prev) return null;
                         return {
                             ...prev,
                             ...newData,
-                            items: prev.items
+                            items: prev.items,
+                            semuaAlatHabis: newData.semuaAlatHabis || false,
+                            alatHabisList: newData.alatHabisList || []
                         };
                     });
 
-                    // LOGIC BARU: LANJUT POLLING SAMPAI SELESAI
+                    // LOGIC STATUS DENGAN CEK ALAT HABIS
                     const currentStatus = newData.status.toLowerCase();
+
+                    // KALAU SELESAI KARENA ALAT HABIS
+                    if (currentStatus === 'selesai' && newData.semuaAlatHabis) {
+                        // TAMPILKAN ALERT KHUSUS
+                        Alert.alert(
+                            'Alat Habis',
+                            `Maaf, semua alat yang anda booking sudah habis:\n\n${newData.alatHabisList?.join('\n') || 'Tidak ada info alat'
+                            }`,
+                            [
+                                {
+                                    text: 'OK',
+                                    onPress: () => {
+                                        stopPolling();
+                                        setShowCompletionAlert(false);
+                                    }
+                                }
+                            ]
+                        );
+                        stopPolling();
+                        return;
+                    }
+
+                    // ⭐ KALAU BEBERAPA ALAT HABIS TAPI MASIH ADA YANG BERHASIL
+                    if (newData.alatHabisList && newData.alatHabisList.length > 0) {
+                        Alert.alert(
+                            'Beberapa Alat Habis',
+                            `Alat berikut sudah habis:\n\n${newData.alatHabisList.join('\n')
+                            }\n\nStatus: ${newData.status}`,
+                            [{ text: 'OK' }]
+                        );
+                    }
+
                     const continuePollingStatuses = ['booked', 'diproses', 'dipinjam', 'dikembalikan'];
 
                     if (continuePollingStatuses.includes(currentStatus)) {
-                        // Masih dalam proses, lanjut polling
                         console.log(`Status ${currentStatus} - Lanjut polling...`);
                     } else {
-                        // Status final: Selesai, Ditolak, dll
                         if (currentStatus === 'selesai') {
                             setShowCompletionAlert(true);
                             setTimeout(() => setShowCompletionAlert(false), 5000);
@@ -112,52 +149,52 @@ export default function BookingQr() {
         }, 500);
     }, [stopPolling]);
 
-    /*  PULL TO REFRESH */
+    /* PULL TO REFRESH - VERSI SIMPLIFIED */
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
 
         try {
-            // 1. Ambil header data terbaru
-            const headerRes = await api.get(`/api/borrowing/${borrowingId}`);
-            const headerData = headerRes.data?.data;
+            // ⭐ HANYA 1 API CALL (sama seperti fetchData)
+            const response = await api.get(`/api/borrowing/${borrowingId}`);
+            const borrowingData = response.data?.data;
 
-            if (!headerData) {
+            if (!borrowingData) {
                 Alert.alert('Error', 'Data booking tidak ditemukan');
                 return;
             }
 
-            // 2. Ambil detail items terbaru
-            const detailRes = await api.get(`api/borrowing-detail/borrowing/${borrowingId}`);
-            const detailData = detailRes.data?.data || [];
+            console.log('✅ Refresh data:', borrowingData);
 
-            // 3. Gabungkan data dengan GROUPING
-            const itemMap = new Map<string, number>();
-            detailData.forEach((item: DetailItem) => {  // ← TAMBAH TYPE
-                const name = item.equipmentName || item.name || 'Unknown';
-                itemMap.set(name, (itemMap.get(name) || 0) + 1);
+            // ⭐ LANGSUNG SET KE STATE (TANPA GROUPING)
+            setBorrowingData({
+                ...borrowingData,
+                semuaAlatHabis: borrowingData.semuaAlatHabis || false,
+                alatHabisList: borrowingData.alatHabisList || []
             });
 
-            const groupedItems = Array.from(itemMap.entries()).map(([equipmentName, quantity]) => ({
-                equipmentName,
-                quantity
-            }));
-
-            const fullData = {
-                ...headerData,
-                items: groupedItems
-            };
-
-            setBorrowingData(fullData);
-
-            // Jika status Booked, restart polling
-            if (headerData.status === 'Booked') {
-                stopPolling();
-                startPolling(headerData.id);
-            } else {
-                stopPolling();
+            // ⭐ ALERT JIKA ALAT HABIS
+            if (borrowingData.semuaAlatHabis) {
+                Alert.alert(
+                    'Alat Habis',
+                    `Maaf, semua alat sudah habis:\n\n${borrowingData.alatHabisList?.join('\n') || ''}`,
+                    [{ text: 'OK' }]
+                );
+            } else if (borrowingData.alatHabisList && borrowingData.alatHabisList.length > 0) {
+                Alert.alert(
+                    'Beberapa Alat Habis',
+                    `Alat berikut habis:\n${borrowingData.alatHabisList.join('\n')}`,
+                    [{ text: 'OK' }]
+                );
             }
 
-            Alert.alert('Diperbarui', `Status: ${headerData.status}`);
+            // Restart polling jika perlu
+            stopPolling();
+            if (borrowingData.status.toLowerCase() === 'booked') {
+                startPolling(borrowingData.id);
+            }
+
+            Alert.alert('Diperbarui', `Status: ${borrowingData.status}`);
+
         } catch (error) {
             console.error('Refresh error:', error);
             Alert.alert('Error', 'Gagal refresh data');
@@ -166,49 +203,50 @@ export default function BookingQr() {
         }
     }, [borrowingId, stopPolling, startPolling]);
 
+
     /* FETCH INITIAL DATA */
     useEffect(() => {
         if (!borrowingId) return;
 
+        // booking-qr.tsx - VERSI SIMPLIFIED
+
         const fetchData = async () => {
             try {
-                // 1. AMBIL DATA HEADER
-                const headerRes = await api.get(`/api/borrowing/${borrowingId}`);
-                const headerData = headerRes.data?.data;
+                // ⭐ HANYA 1 API CALL
+                const response = await api.get(`/api/borrowing/${borrowingId}`);
+                const borrowingData = response.data?.data;
 
-                if (!headerData) {
+                if (!borrowingData) {
                     Alert.alert('Error', 'Data booking tidak ditemukan');
                     return;
                 }
 
-                // 2. AMBIL DATA DETAIL ITEMS
-                const detailRes = await api.get(`api/borrowing-detail/borrowing/${borrowingId}`);
-                const detailData = detailRes.data?.data || [];
+                console.log('Data dari API:', borrowingData);
 
-                // 3. GABUNGKAN DATA DENGAN GROUPING
-                const itemMap = new Map<string, number>();
-                detailData.forEach((item: DetailItem) => {  
-                    const name = item.equipmentName || item.name || 'Unknown';
-                    itemMap.set(name, (itemMap.get(name) || 0) + 1);
+                // ⭐ LANGSUNG SET KE STATE
+                setBorrowingData({
+                    ...borrowingData,
+                    semuaAlatHabis: borrowingData.semuaAlatHabis || false,
+                    alatHabisList: borrowingData.alatHabisList || []
                 });
 
-                const groupedItems = Array.from(itemMap.entries()).map(([equipmentName, quantity]) => ({
-                    equipmentName,
-                    quantity
-                }));
-
-                const fullData = {
-                    ...headerData,
-                    items: groupedItems
-                };
-
-                setBorrowingData(fullData);
-
-                if (headerData.status === 'Booked') {
-                    startPolling(headerData.id);
+                // Alert jika alat habis
+                if (borrowingData.semuaAlatHabis) {
+                    Alert.alert(
+                        'Alat Habis',
+                        `Maaf, semua alat sudah habis:\n\n${borrowingData.alatHabisList?.join('\n') || ''
+                        }`,
+                        [{ text: 'OK' }]
+                    );
                 }
+
+                // Start polling jika status 'booked'
+                if (borrowingData.status.toLowerCase() === 'booked') {
+                    startPolling(borrowingData.id);
+                }
+
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error:', error);
                 Alert.alert('Error', 'Gagal mengambil data booking');
             }
         };
@@ -221,8 +259,10 @@ export default function BookingQr() {
     /* HANDLERS */
     const handleBack = () => {
         stopPolling();
-        router.back();
-        router.push("/(tabs)/transaction-detail");
+        router.push({
+            pathname: '/(tabs)/transaction-detail',
+            params: { id: borrowingId }
+        });
     };
 
     const refreshStatus = async () => {
@@ -244,14 +284,15 @@ export default function BookingQr() {
     /* EMPTY STATE */
     if (!borrowingData) {
         return (
-            <View style={styles.center}>
-                <Ionicons name="alert-circle-outline" size={50} color="#FF5252" />
-                <Text style={{ marginTop: 10 }}>Data Booking Tidak Ditemukan</Text>
-                <TouchableOpacity onPress={handleBack} style={{ marginTop: 20 }}>
-                    <Text style={{ color: '#5B4DBC', fontWeight: 'bold' }}>
-                        Kembali
-                    </Text>
-                </TouchableOpacity>
+            <View style={styles.loadingContainer}>
+                {/* ActivityIndicator */}
+                <ActivityIndicator
+                    size="large"
+                    color="#5B4DBC"
+                />
+                <Text style={styles.loadingText}>
+                    Memuat data booking...
+                </Text>
             </View>
         );
     }
@@ -428,4 +469,16 @@ const styles = StyleSheet.create({
     completionAlertClose: {
         padding: 5,
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F5F5F7'
+    },
+    loadingText: {
+        marginTop: 20,
+        fontSize: 16,
+        color: '#666',
+        fontWeight: '500'
+    }
 });

@@ -32,6 +32,8 @@ const TransactionHeader = ({
         Alert.alert("Notifications", "No new transaction updates.");
     };
 
+    const router = useRouter();
+
     // Handler untuk tab press
     const handleTabPress = (tab: TabType) => {
         setSelectedTab(tab);

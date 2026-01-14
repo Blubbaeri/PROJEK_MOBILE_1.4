@@ -1,5 +1,5 @@
 ﻿// app/(tabs)/index.tsx
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, StyleSheet, StatusBar, ActivityIndicator, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Toast from 'react-native-toast-message';
@@ -16,10 +16,10 @@ type Category = {
 };
 
 export default function HomeScreen() {
-    const { addToCart } = useCart()
+    const { addToCart } = useCart();
     const [equipment, setEquipment] = useState<any[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // null = All
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
     const [isLoading, setIsLoading] = useState(true);
@@ -27,27 +27,11 @@ export default function HomeScreen() {
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
 
-    /* =============================
-        TEST CONNECTION
-    ============================== */
-    const testConnection = async () => {
-        try {
-            await api.get('/api/category');
-            setConnectionError(false);
-            return true;
-        } catch {
-            setConnectionError(true);
-            return false;
-        }
-    };
-
-    /* =============================
-        FETCH CATEGORIES
-    ============================== */
+    /* FETCH CATEGORIES */
     const fetchAllCategories = async () => {
         try {
-            const res = await api.get('/api/category');
-            const data = res.data?.data ?? [];
+            const res = await api.get('/api/Category/GetAllKategori');
+            const data = res.data?.data || [];
 
             const formatted: Category[] = data.map((cat: any) => ({
                 id: cat.id,
@@ -55,78 +39,175 @@ export default function HomeScreen() {
             }));
 
             setCategories(formatted);
-            setSelectedCategory(null); // default All
-        } catch (err) {
-            console.error('Gagal ambil kategori:', err);
+            setSelectedCategory(null);
+        } catch (err: any) {
+            console.error('Failed to fetch categories:', err.message);
             setCategories([]);
             setSelectedCategory(null);
         }
     };
 
-    /* =============================
-        FETCH EQUIPMENT
-    ============================== */
+    /* FETCH EQUIPMENT */
     const fetchData = async (categoryName: string | null) => {
         try {
             let res;
             if (categoryName === null) {
-                res = await api.get('/api/equipment/with-stock');
+                console.log('📦 Fetching ALL equipment (WITHOUT stock filter)...');
+                // PAKAI YANG TANPA FILTER STOCK
+                res = await api.get('/api/Equipment/GetAllEquipment');
             } else {
                 const cat = categories.find(c => c.name === categoryName);
                 if (!cat) return;
-                res = await api.get(`/api/equipment/category/${cat.id}/with-stock`);
+
+                console.log(`📦 Fetching equipment for category ${cat.id} (${cat.name})...`);
+                // PAKAI YANG TANPA FILTER STOCK
+                res = await api.get(`/api/Equipment/GetByCategoryId/${cat.id}`);
             }
 
-            // NORMALIZE DATA: mapping dari API response ke format yang diharapkan
-            const normalizedData = (res.data?.data ?? []).map((item: any) => ({
-                id: item.equipmentId,           // ← map equipmentId ke id
-                name: item.equipmentName,       // ← map equipmentName ke name
-                equipmentId: item.equipmentId,  // ← tetap simpan original jika perlu
-                equipmentName: item.equipmentName,
-                categoryId: item.categoryId,
-                categoryName: item.categoryName,
-                locationId: item.locationId,
-                locationName: item.locationName,
-                status: item.status,
-                stock: item.availableStock,     // ← map availableStock ke stock
-                availableStock: item.availableStock,
-                totalStock: item.totalStock,
-                image: item.image || null,      // default jika tidak ada
-                // tambahkan field lain jika perlu
-            }));
+            console.log('📦 Equipment API Response:', {
+                status: res.status,
+                dataType: typeof res.data,
+                isArray: Array.isArray(res.data),
+                dataKeys: Object.keys(res.data || {})
+            });
+
+            // DEBUG: Tampilkan sample data
+            if (res.data && res.data.data) {
+                console.log('📦 Sample items (first 2):', res.data.data.slice(0, 2));
+            } else if (Array.isArray(res.data)) {
+                console.log('📦 Sample items (first 2):', res.data.slice(0, 2));
+            }
+
+            // Handle response structure
+            let equipmentData: any[] = [];
+
+            if (Array.isArray(res.data)) {
+                // Case 1: Response langsung array
+                equipmentData = res.data;
+                console.log('📦 Direct array response');
+            } else if (res.data && res.data.data && Array.isArray(res.data.data)) {
+                // Case 2: Response { data: [...], totalData: X }
+                equipmentData = res.data.data;
+                console.log('📦 Object with data property');
+            } else if (res.data && typeof res.data === 'object') {
+                // Case 3: Mungkin object lain
+                console.log('📦 Other object structure:', Object.keys(res.data));
+                equipmentData = Object.values(res.data).filter(item => typeof item === 'object');
+            }
+
+            console.log('📦 Equipment data extracted:', equipmentData.length, 'items');
+
+            // Normalize data
+            const normalizedData = equipmentData.map((item: any) => {
+                // Cek field yang tersedia
+                console.log('🔍 Item fields:', Object.keys(item));
+
+                return {
+                    id: item.id || item.equipmentId,
+                    name: item.name || item.equipmentName,
+                    equipmentId: item.id || item.equipmentId,
+                    equipmentName: item.name || item.equipmentName,
+                    categoryId: item.categoryId,
+                    categoryName: item.categoryName,
+                    locationId: item.locationId,
+                    locationName: item.locationName,
+                    status: item.status || 'active',
+                    // PERHATIAN: Endpoint tanpa stock mungkin tidak punya availableStock!
+                    // Coba ambil dari field yang ada
+                    stock: item.availableStock || item.stock || 0,
+                    availableStock: item.availableStock || item.stock || 0,
+                    totalStock: item.totalStock || 0,
+                    image: item.image || null,
+                };
+            });
+
+            console.log('✅ Normalized equipment:', {
+                count: normalizedData.length,
+                firstItem: normalizedData[0]
+            });
 
             setEquipment(normalizedData);
             setConnectionError(false);
-        } catch (err) {
-            console.error('Gagal ambil equipment:', err);
+
+        } catch (err: any) {
+            console.error('❌ fetchData error:', {
+                message: err.message,
+                status: err.response?.status,
+                data: err.response?.data,
+                url: err.config?.url
+            });
+
+            // Fallback: Coba pakai endpoint withStock jika yang tanpa stock error
+            console.log('🔄 Trying fallback to WithStock endpoint...');
+            try {
+                let fallbackRes;
+                if (categoryName === null) {
+                    fallbackRes = await api.get('/api/Equipment/GetAllEquipmentWithStock');
+                } else {
+                    const cat = categories.find(c => c.name === categoryName);
+                    if (cat) {
+                        fallbackRes = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`);
+                    }
+                }
+
+                if (fallbackRes) {
+                    console.log('✅ Fallback successful');
+                    // Process fallback data
+                    let fallbackData: any[] = [];
+
+                    if (Array.isArray(fallbackRes.data)) {
+                        fallbackData = fallbackRes.data;
+                    } else if (fallbackRes.data && fallbackRes.data.data && Array.isArray(fallbackRes.data.data)) {
+                        fallbackData = fallbackRes.data.data;
+                    }
+
+                    const normalized = fallbackData.map((item: any) => ({
+                        id: item.id || item.equipmentId,
+                        name: item.name || item.equipmentName,
+                        equipmentId: item.id || item.equipmentId,
+                        equipmentName: item.name || item.equipmentName,
+                        categoryId: item.categoryId,
+                        categoryName: item.categoryName,
+                        locationId: item.locationId,
+                        locationName: item.locationName,
+                        status: item.status || 'active',
+                        stock: item.availableStock || 0,
+                        availableStock: item.availableStock || 0,
+                        totalStock: item.totalStock || 0,
+                        image: item.image || null,
+                    }));
+
+                    setEquipment(normalized);
+                    setConnectionError(false);
+                    return;
+                }
+            } catch (fallbackErr) {
+                console.error('❌ Fallback also failed:', (fallbackErr as Error).message);
+            }
+
             setEquipment([]);
             setConnectionError(true);
         }
     };
 
-    /* =============================
-        INITIAL LOAD
-    ============================== */
+    /* INITIAL LOAD */
     const loadInitialData = async () => {
         if (!isInitialLoad) return;
 
         setIsLoading(true);
-        const ok = await testConnection();
-        if (!ok) {
+
+        try {
+            await fetchAllCategories();
+            await fetchData(null);
+            setIsInitialLoad(false);
+        } catch (error) {
+            console.error('loadInitialData failed:', error);
+        } finally {
             setIsLoading(false);
-            return;
         }
-
-        await fetchAllCategories();
-        await fetchData(null);
-
-        setIsInitialLoad(false);
-        setIsLoading(false);
     };
 
-    /* =============================
-        LOAD BY CATEGORY
-    ============================== */
+    /* LOAD BY CATEGORY */
     const loadDataByCategory = async () => {
         if (isInitialLoad) return;
 
@@ -135,6 +216,7 @@ export default function HomeScreen() {
         setIsLoading(false);
     };
 
+    /* USE EFFECTS */
     useFocusEffect(
         useCallback(() => {
             loadInitialData();
@@ -145,9 +227,19 @@ export default function HomeScreen() {
         loadDataByCategory();
     }, [selectedCategory]);
 
-    /* =============================
-        HANDLERS
-    ============================== */
+    /* FILTER SEARCH */
+    const filteredData = useMemo(() => {
+        if (!equipment || equipment.length === 0) {
+            return [];
+        }
+
+        return equipment.filter(item => {
+            const itemName = item.name || '';
+            return itemName.toLowerCase().includes(searchQuery.toLowerCase());
+        });
+    }, [equipment, searchQuery]);
+
+    /* HANDLERS */
     const handleRefresh = () => {
         setIsRefreshing(true);
         fetchData(selectedCategory).finally(() => {
@@ -155,28 +247,11 @@ export default function HomeScreen() {
         });
     };
 
-    // HomeScreen.tsx
     const handleAddToCart = async (item: any) => {
         try {
-            console.log(`🎯 Adding ${item.name} to cart`);
-
-            // Debug: cek item structure
-            console.log('📦 Item details:', {
-                id: item.id,
-                equipmentId: item.equipmentId,
-                name: item.name,
-                currentStock: item.stock,
-                availableStock: item.availableStock
-            });
-
-            // 1. Get available PSA IDs
             const equipmentId = item.equipmentId || item.id;
-            console.log(`🔍 Calling API: /api/equipment/${equipmentId}/available-psa`);
-
-            const res = await api.get(`/api/equipment/${equipmentId}/available-psa`);
-            const availableData = res.data?.data;
-
-            console.log('📊 API Response:', availableData);
+            const res = await api.get(`/api/Equipment/GetAvailablePsaIds/${equipmentId}`);
+            const availableData = res.data;
 
             if (!availableData || availableData.availableStock <= 0) {
                 Toast.show({
@@ -187,11 +262,16 @@ export default function HomeScreen() {
                 return;
             }
 
-            // 2. Ambil PSA_ID pertama yang available
-            const psaId = availableData.availablePsaIds[0];
-            console.log(`✅ Using PSA_ID: ${psaId}`);
+            const psaId = availableData.availablePsaIds?.[0];
+            if (!psaId) {
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Tidak ada PSA ID yang tersedia'
+                });
+                return;
+            }
 
-            // 3. Add to cart
             addToCart({
                 id: psaId,
                 perId: equipmentId,
@@ -203,19 +283,16 @@ export default function HomeScreen() {
                 availablePsaIds: availableData.availablePsaIds
             });
 
-            // 4. FIX: Update local state dengan LOGIC YANG BENAR
+            // Update local stock
             setEquipment(prev =>
                 prev.map(eq => {
                     if (eq.id === item.id) {
-                        const currentStock = eq.stock || eq.availableStock || 0;
-                        const newStock = Math.max(0, currentStock - 1);
-
-                        console.log(`🔄 Updating ${eq.name}: ${currentStock} → ${newStock}`);
-
+                        const newStock = Math.max(0, (eq.availableStock || 0) - 1);
                         return {
                             ...eq,
                             stock: newStock,
-                            availableStock: newStock
+                            availableStock: newStock,
+                            status: newStock > 0 ? 'available' : 'unavailable'
                         };
                     }
                     return eq;
@@ -229,13 +306,7 @@ export default function HomeScreen() {
             });
 
         } catch (error: any) {
-            console.error('❌ FULL ERROR DETAILS:', {
-                message: error.message,
-                response: error.response?.data,
-                status: error.response?.status,
-                url: error.config?.url
-            });
-
+            console.error('Add to cart error:', error.message);
             Toast.show({
                 type: 'error',
                 text1: 'Gagal',
@@ -244,16 +315,7 @@ export default function HomeScreen() {
         }
     };
 
-    /* =============================
-        FILTER SEARCH
-    ============================== */
-    const filteredData = equipment.filter(item =>
-        item.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    /* =============================
-        UI
-    ============================== */
+    /* UI */
     if (connectionError && !isLoading) {
         return (
             <View style={styles.mainContainer}>
@@ -289,7 +351,7 @@ export default function HomeScreen() {
                 {isLoading && !isRefreshing ? (
                     <View style={styles.center}>
                         <ActivityIndicator size="large" color="#5B4DBC" />
-                        <Text>Loading...</Text>
+                        <Text>Loading equipment...</Text>
                     </View>
                 ) : (
                     <EquipmentList
@@ -306,7 +368,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    mainContainer: { flex: 1, backgroundColor: '#5B4DBC' },
+    mainContainer: {
+        flex: 1,
+        backgroundColor: '#5B4DBC'
+    },
     bodyContainer: {
         flex: 1,
         backgroundColor: '#F5F5F7',
