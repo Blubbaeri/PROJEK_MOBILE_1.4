@@ -1,4 +1,4 @@
-//components/homeHeader.tsx
+//components/HomeHeader.tsx
 
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';

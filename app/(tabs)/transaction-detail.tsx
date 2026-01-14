@@ -104,7 +104,7 @@ export default function TransactionDetailScreen() {
 
         pollingRef.current = setInterval(async () => {
             try {
-                // ⭐ PAKAI ENDPOINT YANG SAMA DENGAN FETCH DATA
+                // PAKAI ENDPOINT YANG SAMA DENGAN FETCH DATA
                 const res = await api.get(`/api/borrowing/${id}`);
                 const borrowingData = res.data?.data;
 
@@ -141,11 +141,11 @@ export default function TransactionDetailScreen() {
 
         const fetchData = async () => {
             try {
-                console.log(`🔍 Fetching transaction ID: ${transactionId}`);
+                console.log(`Fetching transaction ID: ${transactionId}`);
 
                 // ⭐ PAKAI ENDPOINT YANG BENAR: /api/borrowing/{id}
                 const response = await api.get(`/api/borrowing/${transactionId}`);
-                console.log('📦 API Response:', response.data);
+                console.log('API Response:', response.data);
 
                 const borrowingData = response.data?.data;
 
@@ -156,9 +156,9 @@ export default function TransactionDetailScreen() {
                     return;
                 }
 
-                // ⭐ ITEMS SUDAH ADA DI RESPONSE INI!
+                // ITEMS SUDAH ADA DI RESPONSE INI!
                 const apiItems = borrowingData.items || [];
-                console.log('📋 Items dari API:', apiItems);
+                console.log('Items dari API:', apiItems);
 
                 // Transform items
                 const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
@@ -179,7 +179,7 @@ export default function TransactionDetailScreen() {
                     isFaceVerified: borrowingData.isFaceVerified
                 };
 
-                console.log('✅ Data berhasil di-load:', transactionData);
+                console.log('Data berhasil di-load:', transactionData);
                 setTransaction(transactionData);
 
                 if (transactionData.status === 'Booked') {
@@ -187,7 +187,7 @@ export default function TransactionDetailScreen() {
                 }
 
             } catch (err: any) {
-                console.error('❌ ERROR DETAIL:', {
+                console.error('ERROR DETAIL:', {
                     message: err.message,
                     response: err.response?.data,
                     status: err.response?.status
@@ -253,7 +253,7 @@ export default function TransactionDetailScreen() {
     // Dapatkan status config dengan fallback
     const currentStatus = getStatusConfig(transaction.status);
 
-    // Pengecekan untuk QR dan aktif status (case insensitive)
+    // Pengecekan untuk QR dan aktif status
     const statusLower = transaction.status.toLowerCase();
     const canShowQr = ['booked', 'diproses', 'dipinjam','dikembalikan',].includes(statusLower);
     const isActive = statusLower === 'dipinjam';

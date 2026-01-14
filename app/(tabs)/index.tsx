@@ -27,9 +27,7 @@ export default function HomeScreen() {
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [connectionError, setConnectionError] = useState(false);
 
-    /* =============================
-        TEST CONNECTION
-    ============================== */
+    /*  TEST CONNECTION */
     const testConnection = async () => {
         try {
             await api.get('/api/category');
@@ -41,9 +39,7 @@ export default function HomeScreen() {
         }
     };
 
-    /* =============================
-        FETCH CATEGORIES
-    ============================== */
+    /* FETCH CATEGORIES */
     const fetchAllCategories = async () => {
         try {
             const res = await api.get('/api/category');
@@ -63,9 +59,7 @@ export default function HomeScreen() {
         }
     };
 
-    /* =============================
-        FETCH EQUIPMENT
-    ============================== */
+    /*  FETCH EQUIPMENT */
     const fetchData = async (categoryName: string | null) => {
         try {
             let res;
@@ -79,20 +73,19 @@ export default function HomeScreen() {
 
             // NORMALIZE DATA: mapping dari API response ke format yang diharapkan
             const normalizedData = (res.data?.data ?? []).map((item: any) => ({
-                id: item.equipmentId,           // ← map equipmentId ke id
-                name: item.equipmentName,       // ← map equipmentName ke name
-                equipmentId: item.equipmentId,  // ← tetap simpan original jika perlu
+                id: item.equipmentId,           
+                name: item.equipmentName,       
+                equipmentId: item.equipmentId, 
                 equipmentName: item.equipmentName,
                 categoryId: item.categoryId,
                 categoryName: item.categoryName,
                 locationId: item.locationId,
                 locationName: item.locationName,
                 status: item.status,
-                stock: item.availableStock,     // ← map availableStock ke stock
+                stock: item.availableStock,     
                 availableStock: item.availableStock,
                 totalStock: item.totalStock,
-                image: item.image || null,      // default jika tidak ada
-                // tambahkan field lain jika perlu
+                image: item.image || null,      
             }));
 
             setEquipment(normalizedData);
@@ -104,9 +97,7 @@ export default function HomeScreen() {
         }
     };
 
-    /* =============================
-        INITIAL LOAD
-    ============================== */
+    /* INITIAL LOAD */
     const loadInitialData = async () => {
         if (!isInitialLoad) return;
 
@@ -124,9 +115,7 @@ export default function HomeScreen() {
         setIsLoading(false);
     };
 
-    /* =============================
-        LOAD BY CATEGORY
-    ============================== */
+    /*  LOAD BY CATEGORY */
     const loadDataByCategory = async () => {
         if (isInitialLoad) return;
 
@@ -145,9 +134,7 @@ export default function HomeScreen() {
         loadDataByCategory();
     }, [selectedCategory]);
 
-    /* =============================
-        HANDLERS
-    ============================== */
+    /*  HANDLERS */
     const handleRefresh = () => {
         setIsRefreshing(true);
         fetchData(selectedCategory).finally(() => {
@@ -158,10 +145,10 @@ export default function HomeScreen() {
     // HomeScreen.tsx
     const handleAddToCart = async (item: any) => {
         try {
-            console.log(`🎯 Adding ${item.name} to cart`);
+            console.log(`Adding ${item.name} to cart`);
 
             // Debug: cek item structure
-            console.log('📦 Item details:', {
+            console.log('Item details:', {
                 id: item.id,
                 equipmentId: item.equipmentId,
                 name: item.name,
@@ -171,12 +158,12 @@ export default function HomeScreen() {
 
             // 1. Get available PSA IDs
             const equipmentId = item.equipmentId || item.id;
-            console.log(`🔍 Calling API: /api/equipment/${equipmentId}/available-psa`);
+            console.log(`Calling API: /api/equipment/${equipmentId}/available-psa`);
 
             const res = await api.get(`/api/equipment/${equipmentId}/available-psa`);
             const availableData = res.data?.data;
 
-            console.log('📊 API Response:', availableData);
+            console.log('API Response:', availableData);
 
             if (!availableData || availableData.availableStock <= 0) {
                 Toast.show({
@@ -189,12 +176,12 @@ export default function HomeScreen() {
 
             // 2. Ambil PSA_ID pertama yang available
             const psaId = availableData.availablePsaIds[0];
-            console.log(`✅ Using PSA_ID: ${psaId}`);
+            console.log(`Using PSA_ID: ${psaId}`);
 
             // 3. Add to cart - PERBAIKAN DI SINI!
             addToCart({
-                id: psaId,                    // PSA_ID untuk identifikasi di cart
-                perId: equipmentId,           // PER_ID untuk API booking
+                id: psaId,                    
+                perId: equipmentId,           
                 name: item.name,
                 price: 0,
                 quantity: 1,
@@ -215,7 +202,7 @@ export default function HomeScreen() {
                             ...eq,
                             stock: newStock,
                             availableStock: newStock,
-                            status: newStock > 0 ? 'available' : 'unavailable'  // UPDATE STATUS JUGA!
+                            status: newStock > 0 ? 'available' : 'unavailable'  
                         };
                     }
                     return eq;
@@ -244,16 +231,12 @@ export default function HomeScreen() {
         }
     };
 
-    /* =============================
-        FILTER SEARCH
-    ============================== */
+    /* FILTER SEARCH */
     const filteredData = equipment.filter(item =>
         item.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    /* =============================
-        UI
-    ============================== */
+    /*  UI */
     if (connectionError && !isLoading) {
         return (
             <View style={styles.mainContainer}>

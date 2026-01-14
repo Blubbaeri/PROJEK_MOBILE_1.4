@@ -10,9 +10,7 @@ import TransactionHeader from '../../components/TransactionHeader';
 import TransactionList from '../../components/TransactionList';
 import { Transaction, TransactionStatus } from '../../components/TransactionCard';
 
-/* =========================================================
-   HELPER: NORMALISASI STATUS DARI BACKEND
-   ========================================================= */
+/* HELPER: NORMALISASI STATUS DARI BACKEND */
 const normalizeStatus = (raw: any): TransactionStatus => {
     const value = String(raw || '').toLowerCase();
 
@@ -30,17 +28,15 @@ const normalizeStatus = (raw: any): TransactionStatus => {
         case 'selesai':
             return 'Selesai';
         default:
-            return 'Booked'; // fallback aman
+            return 'Booked'; 
     }
 };
 
-/* =========================================================
-   TIPE TAB BARU
-   ========================================================= */
+/* TIPE TAB BARU */
 type TabType = 'All' | 'Booked' | 'Diproses' | 'Dipinjam' | 'Dikembalikan' | 'Selesai' | 'Ditolak';
 
 const TransactionsScreen = () => {
-    /* ================= STATE ================= */
+    /*  STATE  */
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -48,15 +44,13 @@ const TransactionsScreen = () => {
     const [selectedTab, setSelectedTab] = useState<TabType>('All');
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-    /* ================= FETCH DATA DENGAN FILTER STATUS ================= */
+    /*  FETCH DATA DENGAN FILTER STATUS  */
     const fetchTransactions = async (statusFilter?: TabType) => {
         if (!refreshing) setLoading(true);
         try {
             let url = '/api/borrowing/user/1';
 
-            // Jika bukan "All", gunakan endpoint filter by status
             if (statusFilter && statusFilter !== 'All') {
-                // Map UI Tab ke API status (lowercase)
                 const statusMap: Record<TabType, string> = {
                     'All': '',
                     'Booked': 'booked',
@@ -70,7 +64,7 @@ const TransactionsScreen = () => {
                 const apiStatus = statusMap[statusFilter];
                 if (apiStatus) {
                     url = `/api/borrowing/status/${apiStatus}`;
-                    console.log(`🔍 Filter by status: ${apiStatus}`);
+                    console.log(`Filter by status: ${apiStatus}`);
                 }
             }
 
@@ -86,9 +80,9 @@ const TransactionsScreen = () => {
                 cleanData = apiResponse.data;
             }
 
-            console.log(`📊 Received ${cleanData.length} transactions`);
+            console.log(`Received ${cleanData.length} transactions`);
 
-            /* ===== NORMALISASI & TYPE SAFETY ===== */
+            /* NORMALISASI & TYPE SAFETY */
             const normalizedData: Transaction[] = cleanData.map((item) => ({
                 id: item.id,
                 status: normalizeStatus(item.status),
@@ -97,7 +91,6 @@ const TransactionsScreen = () => {
                 returnedAt: item.returnedAt ?? null,
                 userName: item.userName || `User ${item.mhsId}`,
                 items: item.items || [],
-                // Simpan data asli untuk debugging
                 originalStatus: item.status,
                 mhsId: item.mhsId,
                 isQrVerified: item.isQrVerified || false,
@@ -115,14 +108,14 @@ const TransactionsScreen = () => {
         }
     };
 
-    /* ================= SCREEN FOCUS ================= */
+    /*  SCREEN FOCUS */
     useFocusEffect(
         useCallback(() => {
             fetchTransactions('All'); // Load semua data pertama kali
         }, [])
     );
 
-    /* ================= EFFECT UNTUK TAB CHANGE ================= */
+    /* EFFECT UNTUK TAB CHANGE  */
     useEffect(() => {
         if (!isInitialLoad) {
             fetchTransactions(selectedTab);
@@ -134,10 +127,10 @@ const TransactionsScreen = () => {
         fetchTransactions(selectedTab);
     }, [selectedTab]);
 
-    /* ================= FILTERING (FALLBACK JIKA API FILTER TIDAK BEKERJA) ================= */
+    /* FILTERING (FALLBACK JIKA API FILTER TIDAK BEKERJA) */
     const filteredTransactions = useMemo(() => {
         if (selectedTab === 'All') {
-            return transactions; // Tampilkan semua
+            return transactions;
         }
 
         // Filter di frontend sebagai fallback
@@ -145,7 +138,6 @@ const TransactionsScreen = () => {
             const itemStatus = item.status.toLowerCase();
             const tabStatus = selectedTab.toLowerCase();
 
-            // Handle "Dikembalikan" vs "Returned" jika perlu
             if (selectedTab === 'Dikembalikan') {
                 return itemStatus === 'dikembalikan' || itemStatus === 'returned';
             }
@@ -154,7 +146,7 @@ const TransactionsScreen = () => {
         });
     }, [transactions, selectedTab, searchQuery]);
 
-    /* ================= FINAL FILTER DENGAN SEARCH ================= */
+    /* FINAL FILTER DENGAN SEARCH */
     const finalFilteredTransactions = useMemo(() => {
         if (!searchQuery) return filteredTransactions;
 
@@ -175,7 +167,7 @@ const TransactionsScreen = () => {
         });
     }, [filteredTransactions, searchQuery]);
 
-    /* ================= UI ================= */
+    /*  UI  */
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
@@ -187,7 +179,6 @@ const TransactionsScreen = () => {
                 setSelectedTab={setSelectedTab}
                 onTabChange={(tab) => {
                     setSelectedTab(tab);
-                    // Tidak perlu fetchTransactions di sini karena sudah ada useEffect
                 }}
             />
 

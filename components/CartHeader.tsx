@@ -1,4 +1,4 @@
-//components/cartHeader.tsx
+//components/CartHeader.tsx
 
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
@@ -32,7 +32,7 @@ const CartHeader = ({ totalItems, onClearCart }: CartHeaderProps) => {
                         <Text style={styles.headerTitle}>Lab Equipment</Text>
                         {/* Subtitle tetap dinamis menampilkan jumlah item */}
                         <Text style={styles.headerSubtitle}>
-                            {totalItems > 0 ? `${totalItems} Items in Cart` : 'Shopping Cart'}
+                            {totalItems > 0 ? `${totalItems} Items in Cart` : 'Student Portal'}
                         </Text>
                     </View>
                 </View>

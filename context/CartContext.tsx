@@ -31,11 +31,11 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
     const addToCart = (newItem: CartItem) => {
-        console.log("🎯 Menambahkan ke Cart:", newItem);
+        console.log("Menambahkan ke Cart:", newItem);
 
         // VALIDASI: Pastikan perId ada
         if (!newItem.perId) {
-            console.error("❌ ERROR: perId harus ada!");
+            console.error("ERROR: perId harus ada!");
             return;
         }
 

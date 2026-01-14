@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // <--- 1. INI PENTING (Import Router)
+import { useRouter } from 'expo-router'; // 
 
 export default function LoginScreen() {
     const router = useRouter(); // <--- 2. Panggil Router

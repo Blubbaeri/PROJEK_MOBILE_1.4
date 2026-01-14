@@ -51,16 +51,14 @@
                     }))
                 };
 
-                console.log('📤 Sending to backend:', borrowingData);
+                console.log('Sending to backend:', borrowingData);
 
                 const response = await api.post('/api/borrowing', borrowingData, {
                     timeout: 10000
                 });
 
-                console.log('✅ Response dari backend:', response.data);
+                console.log('Response dari backend:', response.data);
 
-                // LANGSUNG PAKAI RESPONSE, TIDAK PERLU CHECK APAPUN
-                // KALAU SAMPAI SINI BERARTI SUCCESS (STATUS 200)
 
                 router.push({
                     pathname: '/(tabs)/booking-qr',
@@ -74,7 +72,7 @@
                 clearCart();
 
             } catch (error: any) {
-                console.error("❌ Checkout error:", error.message);
+                console.error("Checkout error:", error.message);
                 Alert.alert("Gagal Checkout", error.message || 'Unknown error');
             } finally {
                 setIsBooking(false);
