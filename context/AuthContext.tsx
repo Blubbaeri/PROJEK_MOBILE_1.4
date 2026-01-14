@@ -1,16 +1,17 @@
-// src/context/AuthContext.tsx 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 
-const TOKEN_KEY = 'my-jwt';
+// Key constants
+const TOKEN_KEY = 'user-token';
+const PERMISSIONS_KEY = 'user-permissions';
 
 interface AuthContextType {
-    // Ubah jadi Promise<void> biar kita bisa pake 'await signIn()' di halaman login
-    signIn: (token: string) => Promise<void>;
+    signIn: (token: string, permissions: string[]) => Promise<void>;
     signOut: () => Promise<void>;
     session: string | null;
+    permissions: string[];
     isLoading: boolean;
+    hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,40 +26,59 @@ export const useAuth = () => {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<string | null>(null);
+    const [permissions, setPermissions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const loadToken = async () => {
+        const loadAuthData = async () => {
             try {
+                // Load token
                 const token = await AsyncStorage.getItem(TOKEN_KEY);
                 if (token) {
-                    // Set token ke state
                     setSession(token);
-                    // Set token ke header global axios
-                    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                }
+
+                // Load permissions
+                const permissionsJson = await AsyncStorage.getItem(PERMISSIONS_KEY);
+                if (permissionsJson) {
+                    const perms = JSON.parse(permissionsJson);
+                    setPermissions(perms || []);
                 }
             } catch (e) {
-                console.error("Gagal memuat token dari storage", e);
+                console.error("Gagal memuat auth data dari storage", e);
             } finally {
                 setIsLoading(false);
             }
         };
-        loadToken();
+        loadAuthData();
     }, []);
 
-    const authContextValue = {
-        signIn: async (token: string) => {
+    const hasPermission = (permission: string): boolean => {
+        return permissions.includes(permission);
+    };
+
+    const authContextValue: AuthContextType = {
+        signIn: async (token: string, permissionsList: string[] = []) => {
+            // Simpan ke state
             setSession(token);
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            setPermissions(permissionsList);
+
+            // Simpan ke AsyncStorage
             await AsyncStorage.setItem(TOKEN_KEY, token);
+            await AsyncStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permissionsList));
+
+            console.log('Auth: Token saved, permissions:', permissionsList);
         },
         signOut: async () => {
             setSession(null);
-            delete axios.defaults.headers.common['Authorization'];
+            setPermissions([]);
             await AsyncStorage.removeItem(TOKEN_KEY);
+            await AsyncStorage.removeItem(PERMISSIONS_KEY);
         },
         session,
+        permissions,
         isLoading,
+        hasPermission
     };
 
     return (
