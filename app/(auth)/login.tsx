@@ -16,17 +16,16 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; 
+import { useRouter } from 'expo-router';
 
 export default function LoginScreen() {
-    const router = useRouter(); 
+    const router = useRouter();
     const [email, setEmail] = useState('admin');
     const [password, setPassword] = useState('123456');
     const [isLoading, setIsLoading] = useState(false);
 
     const { signIn } = useAuth();
 
-    // app/(auth)/login.tsx
     const handleSignIn = async () => {
         if (!email || !password) {
             Alert.alert('Gagal', 'Mohon isi Username dan Password.');
@@ -39,10 +38,10 @@ export default function LoginScreen() {
             console.log('Starting login process...');
 
             // 1️⃣ LOGIN KE API - Extract username dari email
-            const username = email.replace('@student.simpel.lab', ''); // "admin"
+            const username = email.replace('@student.simpel.lab', '');
             console.log('Username:', username);
 
-            const loginResponse = await fetch('http://10.1.14.15:5234/api/Auth/login', {
+            const loginResponse = await fetch('http://192.168.100.6:5234/api/Auth/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -57,6 +56,7 @@ export default function LoginScreen() {
 
             console.log('Login response status:', loginResponse.status);
 
+            // Parse login response
             const loginData = await loginResponse.json();
             console.log('Login response data:', loginData);
 
@@ -69,7 +69,7 @@ export default function LoginScreen() {
 
             // 2️⃣ GET PERMISSION TOKEN
             console.log('Getting permission token...');
-            const permissionResponse = await fetch('http://10.1.14.15:5234/api/Auth/getpermission', {
+            const permissionResponse = await fetch('http://192.168.100.6:5234/api/Auth/getpermission', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -85,6 +85,7 @@ export default function LoginScreen() {
 
             console.log('Permission response status:', permissionResponse.status);
 
+            // FIX: Langsung parse JSON tanpa .text() dulu
             const permissionData = await permissionResponse.json();
             console.log('Permission response data:', permissionData);
 
@@ -109,10 +110,7 @@ export default function LoginScreen() {
 
         } catch (error: any) {
             console.error('❌ Login error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                stack: error.stack
-            });
+            console.error('Error details:', error.message);
             Alert.alert('Login Gagal', error.message || 'Terjadi kesalahan');
         } finally {
             setIsLoading(false);
