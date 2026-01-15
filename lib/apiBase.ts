@@ -10,7 +10,7 @@ export function getApiBaseUrl(): string {
     //const ACTIVE_IP = '192.168.100.3'; // <-- GANTI DI SINI KALO GANTI WiFi
     //const ACTIVE_IP = '192.168.100.6'; // <-- GANTI DI SINI KALO GANTI WiFi
     //const ACTIVE_IP = '192.168.207.1'; // <-- GANTI DI SINI KALO GANTI WiFi
-    const ACTIVE_IP = '172.31.16.1';
+    const ACTIVE_IP = '10.1.13.107';
 
     // Untuk development mode (emulator)
     if (__DEV__) {

@@ -1,4 +1,4 @@
-//app/(auth)/login.tsx
+// app/(auth)/login.tsx
 
 import React, { useState } from 'react';
 import {
@@ -16,17 +16,18 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; 
+import { useRouter } from 'expo-router';
+// 1️⃣ IMPORT BOS BESAR (apiBase)
+import { getApiBaseUrl } from '../../lib/apiBase';
 
 export default function LoginScreen() {
-    const router = useRouter(); 
+    const router = useRouter();
     const [email, setEmail] = useState('admin');
     const [password, setPassword] = useState('123456');
     const [isLoading, setIsLoading] = useState(false);
 
     const { signIn } = useAuth();
 
-    // app/(auth)/login.tsx
     const handleSignIn = async () => {
         if (!email || !password) {
             Alert.alert('Gagal', 'Mohon isi Username dan Password.');
@@ -38,11 +39,16 @@ export default function LoginScreen() {
         try {
             console.log('Starting login process...');
 
-            // 1️⃣ LOGIN KE API - Extract username dari email
-            const username = email.replace('@student.simpel.lab', ''); // "admin"
-            console.log('Username:', username);
+            // 2️⃣ AMBIL URL DARI BOS BESAR
+            const baseUrl = getApiBaseUrl();
 
-            const loginResponse = await fetch('http://10.1.14.15:5234/api/Auth/login', {
+            // Extract username dari email
+            const username = email.replace('@student.simpel.lab', '');
+            console.log('Username:', username);
+            console.log('Connecting to:', baseUrl);
+
+            // 3️⃣ GUNAKAN VARIABLE baseUrl (Gak perlu ketik IP lagi)
+            const loginResponse = await fetch(`${baseUrl}/api/Auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -58,18 +64,16 @@ export default function LoginScreen() {
             console.log('Login response status:', loginResponse.status);
 
             const loginData = await loginResponse.json();
-            console.log('Login response data:', loginData);
 
             if (!loginResponse.ok) {
                 throw new Error(loginData.errorMessage || 'Login gagal');
             }
 
             const firstToken = loginData.token;
-            console.log('First token received:', firstToken ? 'YES' : 'NO');
 
-            // 2️⃣ GET PERMISSION TOKEN
+            // 4️⃣ GUNAKAN VARIABLE baseUrl LAGI DI SINI
             console.log('Getting permission token...');
-            const permissionResponse = await fetch('http://10.1.14.15:5234/api/Auth/getpermission', {
+            const permissionResponse = await fetch(`${baseUrl}/api/Auth/getpermission`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,10 +87,7 @@ export default function LoginScreen() {
                 }),
             });
 
-            console.log('Permission response status:', permissionResponse.status);
-
             const permissionData = await permissionResponse.json();
-            console.log('Permission response data:', permissionData);
 
             if (!permissionResponse.ok) {
                 throw new Error(permissionData.errorMessage || 'Gagal mendapatkan permission');
@@ -96,24 +97,13 @@ export default function LoginScreen() {
             const permissions = permissionData.listPermission || [];
 
             console.log('✅ Login berhasil!');
-            console.log('Final token:', finalToken ? 'RECEIVED' : 'MISSING');
-            console.log('Permissions count:', permissions.length);
 
-            // 3️⃣ SIMPAN KE AUTH CONTEXT
             await signIn(finalToken, permissions);
-            console.log('✅ Token saved to AuthContext');
-
-            // 4️⃣ NAVIGASI KE HOME
-            console.log('✅ Navigating to home...');
             router.replace('/(tabs)');
 
         } catch (error: any) {
             console.error('❌ Login error:', error);
-            console.error('Error details:', {
-                message: error.message,
-                stack: error.stack
-            });
-            Alert.alert('Login Gagal', error.message || 'Terjadi kesalahan');
+            Alert.alert('Login Gagal', error.message || 'Terjadi kesalahan jaringan');
         } finally {
             setIsLoading(false);
         }
@@ -125,9 +115,7 @@ export default function LoginScreen() {
             style={styles.container}
         >
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                {/* --- LOGO SECTION --- */}
                 <View style={styles.logoContainer}>
                     <View style={styles.logoBox}>
                         <FontAwesome name="flask" size={40} color="#5B4DBC" />
@@ -136,7 +124,6 @@ export default function LoginScreen() {
                     <Text style={styles.subtitle}>Student Portal</Text>
                 </View>
 
-                {/* --- FORM SECTION --- */}
                 <View style={styles.formContainer}>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email Address</Text>
@@ -184,85 +171,21 @@ export default function LoginScreen() {
     );
 }
 
+// ... (style tetap sama seperti sebelumnya)
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#5B4DBC'
-    },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 25
-    },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 40
-    },
-    logoBox: {
-        width: 80,
-        height: 80,
-        backgroundColor: 'white',
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 15,
-        elevation: 8,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: 'white',
-        letterSpacing: 0.5
-    },
-    subtitle: {
-        fontSize: 16,
-        color: 'rgba(255,255,255,0.8)',
-        marginTop: 5
-    },
-    formContainer: {
-        width: '100%'
-    },
-    inputGroup: {
-        marginBottom: 20
-    },
-    label: {
-        color: 'white',
-        marginBottom: 8,
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 4
-    },
-    input: {
-        backgroundColor: 'white',
-        borderRadius: 12,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        fontSize: 16,
-        color: '#333',
-        elevation: 2
-    },
-    loginButton: {
-        backgroundColor: '#26C6DA',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 10,
-        elevation: 4,
-    },
-    buttonDisabled: {
-        backgroundColor: '#80DEEA'
-    },
-    loginText: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold'
-    },
-    footer: {
-        marginTop: 30,
-        alignItems: 'center'
-    },
-    footerText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 14
-    }
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
+    scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 25 },
+    logoContainer: { alignItems: 'center', marginBottom: 40 },
+    logoBox: { width: 80, height: 80, backgroundColor: 'white', borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 15, elevation: 8 },
+    title: { fontSize: 28, fontWeight: 'bold', color: 'white', letterSpacing: 0.5 },
+    subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginTop: 5 },
+    formContainer: { width: '100%' },
+    inputGroup: { marginBottom: 20 },
+    label: { color: 'white', marginBottom: 8, fontSize: 14, fontWeight: '600', marginLeft: 4 },
+    input: { backgroundColor: 'white', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 16, color: '#333', elevation: 2 },
+    loginButton: { backgroundColor: '#26C6DA', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 10, elevation: 4 },
+    buttonDisabled: { backgroundColor: '#80DEEA' },
+    loginText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    footer: { marginTop: 30, alignItems: 'center' },
+    footerText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 }
 });

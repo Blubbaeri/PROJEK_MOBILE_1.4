@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { View, StyleSheet, StatusBar, Alert, Text, ScrollView, TouchableOpacity, FlatList, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useCart } from '../../context/CartContext';
@@ -17,15 +17,14 @@ export default function CartScreen() {
     const [selectedTime, setSelectedTime] = useState('07:30');
 
     // --- LOGIC TANGGAL ---
-    // Kita buat 2 pilihan: Hari Ini dan Besok
     const dateOptions = useMemo(() => {
         const options = [];
-        for (let i = 0; i < 2; i++) { // i=0 itu hari ini, i=1 itu besok
+        for (let i = 0; i < 2; i++) {
             const d = new Date();
             d.setDate(d.getDate() + i);
             options.push({
                 id: i,
-                fullDate: d.toISOString().split('T')[0], // format YYYY-MM-DD buat database
+                fullDate: d.toISOString().split('T')[0],
                 dayName: d.toLocaleDateString('id-ID', { weekday: 'long' }),
                 dateNum: d.toLocaleDateString('id-ID', { day: 'numeric' }),
                 monthName: d.toLocaleDateString('id-ID', { month: 'short' }),
@@ -36,7 +35,7 @@ export default function CartScreen() {
         return options;
     }, []);
 
-    const [selectedDate, setSelectedDate] = useState(dateOptions[0]); // Default hari ini
+    const [selectedDate, setSelectedDate] = useState(dateOptions[0]);
 
     // --- LOGIC JAM ---
     const timeSlots = useMemo(() => {
@@ -59,24 +58,61 @@ export default function CartScreen() {
         if (actualSlots[index]) setSelectedTime(actualSlots[index]);
     };
 
+    // --- LOGIC FINAL CHECKOUT (SUDAH DISESUAIKAN DENGAN DTO C#) ---
     const processCheckout = async () => {
         if (cartItems.length === 0) return;
+
         setIsBooking(true);
         try {
+            // 1. Format Waktu untuk ScheduledTime (YYYY-MM-DDTHH:mm:ss)
+            const scheduledTime = `${selectedDate.fullDate}T${selectedTime}:00`;
+            const maxReturnTime = `${selectedDate.fullDate}T16:30:00`;
+
+            // 2. Payload sesuai persis dengan CreateBorrowingRequest.cs
             const borrowingData = {
-                mhsId: 1,
-                items: cartItems.map(item => ({ psaId: item.id, quantity: item.quantity })),
-                pickupTime: selectedTime,
-                bookingDate: selectedDate.fullDate // Mengirim tanggal yang dipilih
+                MhsId: 1, // Pastikan tipe Integer (bukan String)
+                Items: cartItems.map(item => ({
+                    PerId: parseInt(item.id), // Gunakan PerId sesuai DTO lo
+                    Quantity: item.quantity || 1
+                })),
+                ScheduledTime: scheduledTime, // Gunakan ScheduledTime sesuai DTO lo
+                MaxReturnTime: maxReturnTime,
+                Status: "booked",
+                CreatedBy: "Mobile_User"
             };
 
-            const response = await api.post('/api/borrowing', borrowingData);
-            if (response.data.data) {
-                router.push({ pathname: '/(tabs)/booking-qr', params: { id: response.data.data.id } });
+            console.log("🚀 Payload dikirim ke Backend:", JSON.stringify(borrowingData, null, 2));
+
+            // 3. Tembak ke API Borrowing
+            const response = await api.post('/api/Borrowing/CreatePeminjaman', borrowingData);
+
+            // 4. Ambil ID dari response untuk halaman QR
+            // Cek apakah response backend kamu membungkus id dalam property 'data' atau langsung
+            const newId = response.data.id || response.data.data?.id;
+
+            if (newId) {
                 clearCart();
+                router.push({
+                    pathname: '/(tabs)/booking-qr',
+                    params: { id: newId.toString() }
+                });
+            } else {
+                Alert.alert("Error", "Gagal mendapatkan ID transaksi dari server.");
             }
-        } catch (error) {
-            Alert.alert("Error", "Gagal memproses booking.");
+        } catch (error: any) {
+            console.error("❌ Checkout Error:", error.response?.data || error.message);
+
+            // Tampilkan pesan error spesifik dari Validation C# jika ada
+            const serverErrors = error.response?.data?.errors;
+            let errorMsg = "Gagal memproses booking.";
+
+            if (serverErrors) {
+                errorMsg = Object.values(serverErrors).flat().join("\n");
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            }
+
+            Alert.alert("Gagal Peminjaman", errorMsg);
         } finally {
             setIsBooking(false);
         }
@@ -102,34 +138,22 @@ export default function CartScreen() {
 
                     {cartItems.length > 0 && (
                         <View style={styles.bookingSection}>
-
                             <Text style={styles.sectionTitle}>Pilih Hari & Waktu</Text>
 
-                            {/* 1. HORIZONTAL DATE PICKER (HARI & TANGGAL) */}
                             <View style={styles.dateRow}>
                                 {dateOptions.map((item) => (
                                     <TouchableOpacity
                                         key={item.id}
-                                        style={[
-                                            styles.dateCard,
-                                            selectedDate.id === item.id && styles.dateCardActive
-                                        ]}
+                                        style={[styles.dateCard, selectedDate.id === item.id && styles.dateCardActive]}
                                         onPress={() => setSelectedDate(item)}
                                     >
-                                        <Text style={[styles.dateLabel, selectedDate.id === item.id && styles.textWhite]}>
-                                            {item.label}
-                                        </Text>
-                                        <Text style={[styles.dateDay, selectedDate.id === item.id && styles.textWhite]}>
-                                            {item.dayName}
-                                        </Text>
-                                        <Text style={[styles.dateValue, selectedDate.id === item.id && styles.textWhite]}>
-                                            {item.dateNum} {item.monthName}
-                                        </Text>
+                                        <Text style={[styles.dateLabel, selectedDate.id === item.id && styles.textWhite]}>{item.label}</Text>
+                                        <Text style={[styles.dateDay, selectedDate.id === item.id && styles.textWhite]}>{item.dayName}</Text>
+                                        <Text style={[styles.dateValue, selectedDate.id === item.id && styles.textWhite]}>{item.dateNum} {item.monthName}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
-                            {/* 2. WHEEL PICKER JAM (Sama seperti sebelumnya) */}
                             <View style={styles.pickerContainer}>
                                 <Text style={styles.subLabel}>Jam Pengambilan ({selectedTime}):</Text>
                                 <View style={styles.wheelWrapper}>
@@ -143,12 +167,7 @@ export default function CartScreen() {
                                         onMomentumScrollEnd={handleScrollEnd}
                                         renderItem={({ item }) => (
                                             <View style={styles.timeRow}>
-                                                <Text style={[
-                                                    styles.timeText,
-                                                    item === selectedTime ? styles.timeActive : styles.timeInactive
-                                                ]}>
-                                                    {item}
-                                                </Text>
+                                                <Text style={[styles.timeText, item === selectedTime ? styles.timeActive : styles.timeInactive]}>{item}</Text>
                                             </View>
                                         )}
                                         style={{ height: ITEM_HEIGHT * 5 }}
@@ -156,7 +175,6 @@ export default function CartScreen() {
                                 </View>
                             </View>
 
-                            {/* 3. RINGKASAN & TOMBOL */}
                             <View style={styles.footerSummary}>
                                 <View style={styles.summaryBox}>
                                     <Ionicons name="calendar" size={16} color="#5B4DBC" />
@@ -173,9 +191,7 @@ export default function CartScreen() {
                                 onPress={processCheckout}
                                 disabled={isBooking}
                             >
-                                <Text style={styles.proceedBtnText}>
-                                    {isBooking ? 'Memproses...' : 'Konfirmasi Booking'}
-                                </Text>
+                                <Text style={styles.proceedBtnText}>{isBooking ? 'Memproses...' : 'Konfirmasi Booking'}</Text>
                                 <Ionicons name="checkmark-circle" size={22} color="white" />
                             </TouchableOpacity>
                         </View>
@@ -191,41 +207,24 @@ const styles = StyleSheet.create({
     bodyContainer: { flex: 1, backgroundColor: '#F5F5F7', borderTopLeftRadius: 30, borderTopRightRadius: 30 },
     bookingSection: { padding: 20 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
-
-    // Date Card Styles
     dateRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-    dateCard: {
-        backgroundColor: 'white', width: '48%', padding: 15, borderRadius: 20,
-        alignItems: 'center', borderWidth: 1, borderColor: '#EEE',
-        elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 5
-    },
+    dateCard: { backgroundColor: 'white', width: '48%', padding: 15, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#EEE', elevation: 2 },
     dateCardActive: { backgroundColor: '#5B4DBC', borderColor: '#5B4DBC' },
     dateLabel: { fontSize: 12, color: '#999', marginBottom: 4 },
     dateDay: { fontSize: 16, fontWeight: 'bold', color: '#333' },
     dateValue: { fontSize: 14, color: '#666' },
     textWhite: { color: 'white' },
-
-    // Wheel Picker Styles
     pickerContainer: { marginTop: 10 },
     subLabel: { fontSize: 14, color: '#666', marginBottom: 10, fontWeight: '600' },
     wheelWrapper: { backgroundColor: '#1C1C1E', borderRadius: 25, height: ITEM_HEIGHT * 5, overflow: 'hidden', justifyContent: 'center' },
-    activeHighlight: {
-        position: 'absolute', top: ITEM_HEIGHT * 2, left: 15, right: 15, height: ITEM_HEIGHT,
-        backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
-    },
+    activeHighlight: { position: 'absolute', top: ITEM_HEIGHT * 2, left: 15, right: 15, height: ITEM_HEIGHT, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
     timeRow: { height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' },
     timeText: { fontSize: 20, fontWeight: '600' },
     timeActive: { color: 'white', fontSize: 24 },
     timeInactive: { color: '#48484A' },
-
     footerSummary: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20 },
     summaryBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#EEE' },
     summaryText: { marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#5B4DBC' },
-
-    proceedBtn: {
-        backgroundColor: '#5B4DBC', padding: 18, borderRadius: 20,
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-        elevation: 5, shadowColor: '#5B4DBC', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 10 }, shadowRadius: 20
-    },
+    proceedBtn: { backgroundColor: '#5B4DBC', padding: 18, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     proceedBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginRight: 10 }
 });
