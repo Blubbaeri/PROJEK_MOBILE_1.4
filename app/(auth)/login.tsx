@@ -1,5 +1,4 @@
-//app/(auth)/login.tsx
-
+// app/(auth)/login.tsx
 import React, { useState } from 'react';
 import {
     View,
@@ -17,6 +16,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getApiBaseUrl } from '../../lib/apiBase'; // ✅ IMPORT INI
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -37,11 +37,17 @@ export default function LoginScreen() {
         try {
             console.log('Starting login process...');
 
+            // ✅ Debug: Tampilkan URL yang digunakan
+            const API_BASE = getApiBaseUrl();
+            console.log('📡 API Base URL:', API_BASE);
+            console.log('🔗 Login URL:', `${API_BASE}/api/Auth/login`);
+
             // 1️⃣ LOGIN KE API - Extract username dari email
             const username = email.replace('@student.simpel.lab', '');
-            console.log('Username:', username);
+            console.log('👤 Username:', username);
 
-            const loginResponse = await fetch('http://192.168.100.6:5234/api/Auth/login', {
+            // ✅ Gunakan API_BASE dari fungsi
+            const loginResponse = await fetch(`${API_BASE}/api/Auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -54,22 +60,24 @@ export default function LoginScreen() {
                 }),
             });
 
-            console.log('Login response status:', loginResponse.status);
+            console.log('📊 Login response status:', loginResponse.status);
 
             // Parse login response
             const loginData = await loginResponse.json();
-            console.log('Login response data:', loginData);
+            console.log('📦 Login response data:', loginData);
 
             if (!loginResponse.ok) {
                 throw new Error(loginData.errorMessage || 'Login gagal');
             }
 
             const firstToken = loginData.token;
-            console.log('First token received:', firstToken ? 'YES' : 'NO');
+            console.log('🔑 First token received:', firstToken ? 'YES' : 'NO');
 
             // 2️⃣ GET PERMISSION TOKEN
-            console.log('Getting permission token...');
-            const permissionResponse = await fetch('http://192.168.100.6:5234/api/Auth/getpermission', {
+            console.log('🔄 Getting permission token...');
+            console.log('🔗 Permission URL:', `${API_BASE}/api/Auth/getpermission`);
+
+            const permissionResponse = await fetch(`${API_BASE}/api/Auth/getpermission`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,11 +91,10 @@ export default function LoginScreen() {
                 }),
             });
 
-            console.log('Permission response status:', permissionResponse.status);
+            console.log('📊 Permission response status:', permissionResponse.status);
 
-            // FIX: Langsung parse JSON tanpa .text() dulu
             const permissionData = await permissionResponse.json();
-            console.log('Permission response data:', permissionData);
+            console.log('📦 Permission response data:', permissionData);
 
             if (!permissionResponse.ok) {
                 throw new Error(permissionData.errorMessage || 'Gagal mendapatkan permission');
@@ -97,21 +104,35 @@ export default function LoginScreen() {
             const permissions = permissionData.listPermission || [];
 
             console.log('✅ Login berhasil!');
-            console.log('Final token:', finalToken ? 'RECEIVED' : 'MISSING');
-            console.log('Permissions count:', permissions.length);
+            console.log('🔑 Final token:', finalToken ? 'RECEIVED' : 'MISSING');
+            console.log('📋 Permissions count:', permissions.length);
 
             // 3️⃣ SIMPAN KE AUTH CONTEXT
             await signIn(finalToken, permissions);
-            console.log('✅ Token saved to AuthContext');
+            console.log('💾 Token saved to AuthContext');
 
             // 4️⃣ NAVIGASI KE HOME
-            console.log('✅ Navigating to home...');
+            console.log('🚀 Navigating to home...');
             router.replace('/(tabs)');
 
         } catch (error: any) {
             console.error('❌ Login error:', error);
-            console.error('Error details:', error.message);
-            Alert.alert('Login Gagal', error.message || 'Terjadi kesalahan');
+            console.error('🔍 Error details:', error.message);
+
+            // ✅ Pesan error yang lebih informatif
+            let errorMessage = error.message;
+            if (error.message.includes('Network request failed')) {
+                errorMessage = `Gagal terhubung ke server:\n\n` +
+                    `URL: ${getApiBaseUrl()}\n` +
+                    `IP Server: 192.168.100.4\n` +
+                    `Port: 5234\n\n` +
+                    `Periksa:\n` +
+                    `1. Server API berjalan di komputer\n` +
+                    `2. Port 5234 terbuka\n` +
+                    `3. Device dalam WiFi yang sama`;
+            }
+
+            Alert.alert('Login Gagal', errorMessage);
         } finally {
             setIsLoading(false);
         }

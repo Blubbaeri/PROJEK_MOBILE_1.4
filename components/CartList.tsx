@@ -1,3 +1,4 @@
+// components/CartList.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
@@ -5,6 +6,7 @@ import CartItemCard from './CartItemCard';
 
 interface CartListProps {
     cart: any[];
+    totalItems?: number; // ✅ TAMBAHKAN INI (optional)
     onRemove: (id: any) => void;
     onIncrease: (id: any) => void;
     onDecrease: (id: any) => void;
@@ -14,6 +16,7 @@ interface CartListProps {
 
 export default function CartList({
     cart,
+    totalItems, // ✅ SEKARANG ADA (tapi optional)
     onRemove,
     onIncrease,
     onDecrease,
@@ -35,6 +38,16 @@ export default function CartList({
 
     return (
         <View style={styles.container}>
+            {/* Header dengan total items */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>
+                    Keranjang ({totalItems !== undefined ? totalItems : cart.length} item)
+                </Text>
+                <TouchableOpacity onPress={onBrowse}>
+                    <Text style={styles.browseLink}>+ Tambah Item</Text>
+                </TouchableOpacity>
+            </View>
+
             {/* Menggunakan .map agar scroll lancar di parent ScrollView */}
             {cart.map((item) => (
                 <CartItemCard
@@ -56,11 +69,58 @@ export default function CartList({
 }
 
 const styles = StyleSheet.create({
-    container: { padding: 20 },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 80 },
-    emptyText: { marginTop: 10, fontSize: 16, color: '#888', marginBottom: 20 },
-    browseButton: { backgroundColor: '#5B4DBC', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 8 },
-    browseText: { color: 'white', fontWeight: 'bold' },
-    addMoreBtn: { alignSelf: 'center', marginTop: 10, marginBottom: 20 },
-    addMoreText: { color: '#5B4DBC', fontWeight: '600' }
+    container: {
+        paddingHorizontal: 20,
+        paddingTop: 10
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+        paddingBottom: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#EEE'
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    browseLink: {
+        fontSize: 14,
+        color: '#5B4DBC',
+        fontWeight: '600'
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 80
+    },
+    emptyText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#888',
+        marginBottom: 20
+    },
+    browseButton: {
+        backgroundColor: '#5B4DBC',
+        paddingVertical: 12,
+        paddingHorizontal: 25,
+        borderRadius: 8
+    },
+    browseText: {
+        color: 'white',
+        fontWeight: 'bold'
+    },
+    addMoreBtn: {
+        alignSelf: 'center',
+        marginTop: 10,
+        marginBottom: 20
+    },
+    addMoreText: {
+        color: '#5B4DBC',
+        fontWeight: '600'
+    }
 });
