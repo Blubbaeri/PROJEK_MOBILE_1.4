@@ -29,8 +29,23 @@ interface BorrowingData {
     id: number;
     qrCode: string;
     status: string;
-    items: any[];
+    items: Array<{
+        equipmentName: string;
+        quantity: number;
+        status: string;
+        categoryName: string;
+        locationName: string;
+    }>;
+    mhsId: number;
+    userName: string;
     borrowedAt?: string;
+    returnedAt?: string | null;
+    isQrVerified: boolean;
+    isFaceVerified: boolean;
+    scheduledTime: string;
+    maxReturnTime: string;
+    qrExpiry: string | null;
+    verifiedDate: string | null;
     semuaAlatHabis?: boolean;
     alatHabisList?: string[];
 }
@@ -68,8 +83,8 @@ export default function BookingQr() {
         pollingRef.current = setInterval(async () => {
             try {
                 // Ganti ke /api/Borrowing (Huruf B Besar sesuai Controller lo)
-                const headerRes = await api.get(`/api/Borrowing/${borrowId}`);
-                const newData = headerRes.data?.data || headerRes.data; // Safety check data structure
+                const headerRes = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowId}`);
+                const newData = headerRes.data;
 
                 if (!newData || !newData.status) return;
 
@@ -113,8 +128,8 @@ export default function BookingQr() {
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            const response = await api.get(`/api/Borrowing/${borrowingId}`);
-            const data = response.data?.data || response.data;
+            const response = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowingId}`);
+            const data = response.data;
 
             if (data) {
                 setBorrowingData({
@@ -136,8 +151,8 @@ export default function BookingQr() {
 
         const fetchData = async () => {
             try {
-                const response = await api.get(`/api/Borrowing/${borrowingId}`);
-                const data = response.data?.data || response.data;
+                const response = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowingId}`);
+                const data = response.data; 
 
                 if (!data) {
                     Alert.alert('Error', 'Data booking tidak ditemukan');
