@@ -1,4 +1,4 @@
-// app/(tabs)/cart.tsx
+﻿// app/(tabs)/cart.tsx
 import React, { useState, useMemo } from 'react';
 import {
     View,
@@ -59,107 +59,123 @@ export default function CartScreen() {
         return slots;
     }, []);
 
+    const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const y = event.nativeEvent.contentOffset.y;
+        const index = Math.round(y / ITEM_HEIGHT);
+        const actualSlots = timeSlots.filter(s => s !== '');
+        if (actualSlots[index]) setSelectedTime(actualSlots[index]);
+    };
+
+    // --- LOGIC FINAL CHECKOUT (SUDAH DISESUAIKAN DENGAN DTO C#) ---
     const processCheckout = async () => {
         if (cartItems.length === 0) return;
+
         setIsBooking(true);
         try {
+            // 1. Format Waktu untuk ScheduledTime (YYYY-MM-DDTHH:mm:ss)
+            const scheduledTime = `${selectedDate.fullDate}T${selectedTime}:00`;
+            const maxReturnTime = `${selectedDate.fullDate}T16:30:00`;
+
+            // 2. Payload sesuai persis dengan CreateBorrowingRequest.cs
             const borrowingData = {
-                mhsId: 1,
-                items: cartItems.map(item => ({ psaId: item.id, quantity: item.quantity })),
-                pickupTime: selectedTime,
-                bookingDate: selectedDate.fullDate
+                MhsId: 1, // Pastikan tipe Integer (bukan String)
+                Items: cartItems.map(item => ({
+                    PerId: parseInt(item.id), // Gunakan PerId sesuai DTO lo
+                    Quantity: item.quantity || 1
+                })),
+                ScheduledTime: scheduledTime, // Gunakan ScheduledTime sesuai DTO lo
+                MaxReturnTime: maxReturnTime,
+                Status: "booked",
+                CreatedBy: "Mobile_User"
             };
 
-            const response = await api.post('/api/borrowing', borrowingData);
-            if (response.data.data) {
-                router.push({ pathname: '/(tabs)/booking-qr', params: { id: response.data.data.id } });
+            console.log("🚀 Payload dikirim ke Backend:", JSON.stringify(borrowingData, null, 2));
+
+            // 3. Tembak ke API Borrowing
+            const response = await api.post('/api/Borrowing/CreatePeminjaman', borrowingData);
+
+            // 4. Ambil ID dari response untuk halaman QR
+            // Cek apakah response backend kamu membungkus id dalam property 'data' atau langsung
+            const newId = response.data.id || response.data.data?.id;
+
+            if (newId) {
                 clearCart();
+                router.push({
+                    pathname: '/(tabs)/booking-qr',
+                    params: { id: newId.toString() }
+                });
+            } else {
+                Alert.alert("Error", "Gagal mendapatkan ID transaksi dari server.");
             }
-        } catch (error) {
-            Alert.alert("Error", "Gagal memproses booking.");
+        } catch (error: any) {
+            console.error("❌ Checkout Error:", error.response?.data || error.message);
+
+            // Tampilkan pesan error spesifik dari Validation C# jika ada
+            const serverErrors = error.response?.data?.errors;
+            let errorMsg = "Gagal memproses booking.";
+
+            if (serverErrors) {
+                errorMsg = Object.values(serverErrors).flat().join("\n");
+            } else if (error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            }
+
+            Alert.alert("Gagal Peminjaman", errorMsg);
         } finally {
             setIsBooking(false);
         }
     };
 
-    // Data untuk FlatList sections
-    const renderItem = ({ item }: { item: any }) => {
-        if (item.type === 'cart-items') {
-            return (
-                <CartList
-                    cart={cartItems}
-                    onRemove={removeFromCart}
-                    onIncrease={increaseQuantity}
-                    onDecrease={decreaseQuantity}
-                    onBrowse={() => router.push('/(tabs)')}
-                    hideFooter={true}
-                />
-            );
-        } else if (item.type === 'booking-section') {
-            return (
-                <View style={styles.bookingSection}>
-                    <Text style={styles.sectionTitle}>Pilih Hari & Waktu</Text>
+    return (
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
+            <CartHeader totalItems={totalItems} onClearCart={clearCart} />
 
-                    {/* Date Picker */}
-                    <View style={styles.dateRow}>
-                        {dateOptions.map((dateItem) => (
-                            <TouchableOpacity
-                                key={dateItem.id}
-                                style={[
-                                    styles.dateCard,
-                                    selectedDate.id === dateItem.id && styles.dateCardActive
-                                ]}
-                                onPress={() => setSelectedDate(dateItem)}
-                            >
-                                <Text style={[styles.dateLabel, selectedDate.id === dateItem.id && styles.textWhite]}>
-                                    {dateItem.label}
-                                </Text>
-                                <Text style={[styles.dateDay, selectedDate.id === dateItem.id && styles.textWhite]}>
-                                    {dateItem.dayName}
-                                </Text>
-                                <Text style={[styles.dateValue, selectedDate.id === dateItem.id && styles.textWhite]}>
-                                    {dateItem.dateNum} {dateItem.monthName}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+            <View style={styles.bodyContainer}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
-                    {/* Modern Time Picker with Chips */}
-                    <View style={styles.pickerContainer}>
-                        <View style={styles.timeHeaderRow}>
-                            <Text style={styles.subLabel}>Waktu Pengambilan</Text>
-                            <View style={styles.selectedTimeBadge}>
-                                <Ionicons name="time" size={14} color="#5B4DBC" />
-                                <Text style={styles.selectedTimeText}>{selectedTime}</Text>
-                            </View>
-                        </View>
+                    <CartList
+                        cart={cartItems}
+                        totalItems={totalItems}
+                        onRemove={removeFromCart}
+                        onIncrease={increaseQuantity}
+                        onDecrease={decreaseQuantity}
+                        onBrowse={() => router.push('/(tabs)')}
+                        hideFooter={true}
+                    />
 
-                        <ScrollView
-                            style={styles.timeScrollContainer}
-                            contentContainerStyle={styles.timeGridContainer}
-                            showsVerticalScrollIndicator={false}
-                            nestedScrollEnabled={true}
-                        >
-                            <View style={styles.timeGrid}>
-                                {timeSlots.map((time) => (
+                    {cartItems.length > 0 && (
+                        <View style={styles.bookingSection}>
+                            <Text style={styles.sectionTitle}>Pilih Hari & Waktu</Text>
+
+                            <View style={styles.dateRow}>
+                                {dateOptions.map((item) => (
                                     <TouchableOpacity
-                                        key={time}
-                                        style={[
-                                            styles.timeChip,
-                                            selectedTime === time && styles.timeChipActive
-                                        ]}
-                                        onPress={() => setSelectedTime(time)}
-                                        activeOpacity={0.7}
+                                        key={item.id}
+                                        style={[styles.dateCard, selectedDate.id === item.id && styles.dateCardActive]}
+                                        onPress={() => setSelectedDate(item)}
                                     >
-                                        <Text style={[
-                                            styles.timeChipText,
-                                            selectedTime === time && styles.timeChipTextActive
-                                        ]}>
-                                            {time}
-                                        </Text>
-                                        {selectedTime === time && (
-                                            <View style={styles.checkmarkCircle}>
-                                                <Ionicons name="checkmark" size={12} color="white" />
+                                        <Text style={[styles.dateLabel, selectedDate.id === item.id && styles.textWhite]}>{item.label}</Text>
+                                        <Text style={[styles.dateDay, selectedDate.id === item.id && styles.textWhite]}>{item.dayName}</Text>
+                                        <Text style={[styles.dateValue, selectedDate.id === item.id && styles.textWhite]}>{item.dateNum} {item.monthName}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <View style={styles.pickerContainer}>
+                                <Text style={styles.subLabel}>Jam Pengambilan ({selectedTime}):</Text>
+                                <View style={styles.wheelWrapper}>
+                                    <View style={styles.activeHighlight} />
+                                    <FlatList
+                                        data={timeSlots}
+                                        keyExtractor={(_, i) => i.toString()}
+                                        showsVerticalScrollIndicator={false}
+                                        snapToInterval={ITEM_HEIGHT}
+                                        decelerationRate="fast"
+                                        onMomentumScrollEnd={handleScrollEnd}
+                                        renderItem={({ item }) => (
+                                            <View style={styles.timeRow}>
+                                                <Text style={[styles.timeText, item === selectedTime ? styles.timeActive : styles.timeInactive]}>{item}</Text>
                                             </View>
                                         )}
                                     </TouchableOpacity>
@@ -168,324 +184,56 @@ export default function CartScreen() {
                         </ScrollView>
                     </View>
 
-                    {/* Summary & Button */}
-                    <View style={styles.footerSummary}>
-                        <View style={styles.summaryBox}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="calendar" size={18} color="#5B4DBC" />
+                            <View style={styles.footerSummary}>
+                                <View style={styles.summaryBox}>
+                                    <Ionicons name="calendar" size={16} color="#5B4DBC" />
+                                    <Text style={styles.summaryText}>{selectedDate.dayName}, {selectedDate.dateNum} {selectedDate.monthName}</Text>
+                                </View>
+                                <View style={styles.summaryBox}>
+                                    <Ionicons name="time" size={16} color="#5B4DBC" />
+                                    <Text style={styles.summaryText}>Jam {selectedTime}</Text>
+                                </View>
                             </View>
-                            <Text style={styles.summaryText}>{selectedDate.dayName}, {selectedDate.dateNum} {selectedDate.monthName}</Text>
+
+                            <TouchableOpacity
+                                style={styles.proceedBtn}
+                                onPress={processCheckout}
+                                disabled={isBooking}
+                            >
+                                <Text style={styles.proceedBtnText}>{isBooking ? 'Memproses...' : 'Konfirmasi Booking'}</Text>
+                                <Ionicons name="checkmark-circle" size={22} color="white" />
+                            </TouchableOpacity>
                         </View>
-                        <View style={styles.summaryBox}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="time" size={18} color="#5B4DBC" />
-                            </View>
-                            <Text style={styles.summaryText}>Jam {selectedTime}</Text>
-                        </View>
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.proceedBtn}
-                        onPress={processCheckout}
-                        disabled={isBooking}
-                    >
-                        <Text style={styles.proceedBtnText}>
-                            {isBooking ? 'Memproses...' : 'Konfirmasi Booking'}
-                        </Text>
-                        <Ionicons name="checkmark-circle" size={22} color="white" />
-                    </TouchableOpacity>
-                </View>
-            );
-        }
-        return null;
-    };
-
-    // Data sections untuk FlatList
-    const sectionsData = useMemo(() => {
-        if (cartItems.length === 0) {
-            return [{ type: 'empty' }];
-        }
-        return [
-            { type: 'cart-items' },
-            { type: 'booking-section' }
-        ];
-    }, [cartItems.length]);
-
-    // Render untuk cart kosong
-    const renderEmptyCart = () => (
-        <View style={styles.emptyCart}>
-            <Ionicons name="cart-outline" size={80} color="#CCC" />
-            <Text style={styles.emptyText}>Keranjang Kosong</Text>
-            <TouchableOpacity
-                style={styles.browseBtn}
-                onPress={() => router.push('/(tabs)')}
-            >
-                <Text style={styles.browseBtnText}>Telusuri Alat</Text>
-            </TouchableOpacity>
-        </View>
-    );
-
-    return (
-        <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-            <CartHeader totalItems={totalItems} onClearCart={clearCart} />
-
-            <View style={styles.bodyContainer}>
-                {cartItems.length === 0 ? (
-                    renderEmptyCart()
-                ) : (
-                    <FlatList
-                        data={sectionsData}
-                        renderItem={renderItem}
-                        keyExtractor={(item, index) => index.toString()}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 40 }}
-                        nestedScrollEnabled={true}
-                    />
-                )}
+                    )}
+                </ScrollView>
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#5B4DBC'
-    },
-    bodyContainer: {
-        flex: 1,
-        backgroundColor: '#F5F5F7',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30
-    },
-    emptyCart: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60
-    },
-    emptyText: {
-        fontSize: 18,
-        color: '#999',
-        marginTop: 10,
-        marginBottom: 20
-    },
-    browseBtn: {
-        backgroundColor: '#5B4DBC',
-        paddingHorizontal: 30,
-        paddingVertical: 12,
-        borderRadius: 25
-    },
-    browseBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16
-    },
-    bookingSection: {
-        padding: 20
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 15
-    },
-    // Date Card Styles
-    dateRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20
-    },
-    dateCard: {
-        backgroundColor: 'white',
-        width: '48%',
-        padding: 15,
-        borderRadius: 20,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#EEE',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 5
-    },
-    dateCardActive: {
-        backgroundColor: '#5B4DBC',
-        borderColor: '#5B4DBC'
-    },
-    dateLabel: {
-        fontSize: 12,
-        color: '#999',
-        marginBottom: 4
-    },
-    dateDay: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333'
-    },
-    dateValue: {
-        fontSize: 14,
-        color: '#666'
-    },
-    textWhite: {
-        color: 'white'
-    },
-    // Modern Time Picker Styles with Chips
-    pickerContainer: {
-        marginTop: 10,
-        marginBottom: 10
-    },
-    timeHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12
-    },
-    subLabel: {
-        fontSize: 15,
-        color: '#333',
-        fontWeight: '600',
-        letterSpacing: 0.3
-    },
-    selectedTimeBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F0EDFF',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#5B4DBC'
-    },
-    selectedTimeText: {
-        marginLeft: 6,
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#5B4DBC',
-        letterSpacing: 0.5
-    },
-    timeScrollContainer: {
-        maxHeight: 280,
-        backgroundColor: 'white',
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E5E5EA',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 8
-    },
-    timeGridContainer: {
-        padding: 12
-    },
-    timeGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8
-    },
-    timeChip: {
-        backgroundColor: '#F8F8F8',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 14,
-        borderWidth: 1.5,
-        borderColor: '#E5E5EA',
-        minWidth: '30%',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'row',
-        elevation: 1,
-        shadowColor: '#000',
-        shadowOpacity: 0.03,
-        shadowOffset: { width: 0, height: 1 },
-        shadowRadius: 2
-    },
-    timeChipActive: {
-        backgroundColor: '#5B4DBC',
-        borderColor: '#5B4DBC',
-        elevation: 3,
-        shadowColor: '#5B4DBC',
-        shadowOpacity: 0.3,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 6
-    },
-    timeChipText: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: '#666',
-        letterSpacing: 0.5
-    },
-    timeChipTextActive: {
-        color: 'white',
-        fontWeight: '700'
-    },
-    checkmarkCircle: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginLeft: 6
-    },
-    footerSummary: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginVertical: 20,
-        paddingHorizontal: 5
-    },
-    summaryBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: '#E5E5EA',
-        flex: 1,
-        marginHorizontal: 5,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.04,
-        shadowOffset: { width: 0, height: 2 },
-        shadowRadius: 8
-    },
-    iconCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#F0EDFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 8
-    },
-    summaryText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#333',
-        flex: 1
-    },
-    proceedBtn: {
-        backgroundColor: '#5B4DBC',
-        padding: 18,
-        borderRadius: 20,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 5,
-        shadowColor: '#5B4DBC',
-        shadowOpacity: 0.3,
-        shadowOffset: { width: 0, height: 10 },
-        shadowRadius: 20
-    },
-    proceedBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-        marginRight: 10
-    }
-}); 
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
+    bodyContainer: { flex: 1, backgroundColor: '#F5F5F7', borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+    bookingSection: { padding: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+    dateRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+    dateCard: { backgroundColor: 'white', width: '48%', padding: 15, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#EEE', elevation: 2 },
+    dateCardActive: { backgroundColor: '#5B4DBC', borderColor: '#5B4DBC' },
+    dateLabel: { fontSize: 12, color: '#999', marginBottom: 4 },
+    dateDay: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    dateValue: { fontSize: 14, color: '#666' },
+    textWhite: { color: 'white' },
+    pickerContainer: { marginTop: 10 },
+    subLabel: { fontSize: 14, color: '#666', marginBottom: 10, fontWeight: '600' },
+    wheelWrapper: { backgroundColor: '#1C1C1E', borderRadius: 25, height: ITEM_HEIGHT * 5, overflow: 'hidden', justifyContent: 'center' },
+    activeHighlight: { position: 'absolute', top: ITEM_HEIGHT * 2, left: 15, right: 15, height: ITEM_HEIGHT, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+    timeRow: { height: ITEM_HEIGHT, justifyContent: 'center', alignItems: 'center' },
+    timeText: { fontSize: 20, fontWeight: '600' },
+    timeActive: { color: 'white', fontSize: 24 },
+    timeInactive: { color: '#48484A' },
+    footerSummary: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 20 },
+    summaryBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#EEE' },
+    summaryText: { marginLeft: 8, fontSize: 13, fontWeight: '600', color: '#5B4DBC' },
+    proceedBtn: { backgroundColor: '#5B4DBC', padding: 18, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 5 },
+    proceedBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginRight: 10 }
+});

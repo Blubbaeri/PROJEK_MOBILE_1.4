@@ -107,7 +107,6 @@ export default function LoginScreen() {
             console.log('🔑 Final token:', finalToken ? 'RECEIVED' : 'MISSING');
             console.log('📋 Permissions count:', permissions.length);
 
-            // 3️⃣ SIMPAN KE AUTH CONTEXT
             await signIn(finalToken, permissions);
             console.log('💾 Token saved to AuthContext');
 
@@ -144,9 +143,7 @@ export default function LoginScreen() {
             style={styles.container}
         >
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                {/* --- LOGO SECTION --- */}
                 <View style={styles.logoContainer}>
                     <View style={styles.logoBox}>
                         <FontAwesome name="flask" size={40} color="#5B4DBC" />
@@ -155,7 +152,6 @@ export default function LoginScreen() {
                     <Text style={styles.subtitle}>Student Portal</Text>
                 </View>
 
-                {/* --- FORM SECTION --- */}
                 <View style={styles.formContainer}>
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Email Address</Text>
@@ -203,85 +199,21 @@ export default function LoginScreen() {
     );
 }
 
+// ... (style tetap sama seperti sebelumnya)
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#5B4DBC'
-    },
-    scrollContent: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 25
-    },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 40
-    },
-    logoBox: {
-        width: 80,
-        height: 80,
-        backgroundColor: 'white',
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 15,
-        elevation: 8,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: 'white',
-        letterSpacing: 0.5
-    },
-    subtitle: {
-        fontSize: 16,
-        color: 'rgba(255,255,255,0.8)',
-        marginTop: 5
-    },
-    formContainer: {
-        width: '100%'
-    },
-    inputGroup: {
-        marginBottom: 20
-    },
-    label: {
-        color: 'white',
-        marginBottom: 8,
-        fontSize: 14,
-        fontWeight: '600',
-        marginLeft: 4
-    },
-    input: {
-        backgroundColor: 'white',
-        borderRadius: 12,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        fontSize: 16,
-        color: '#333',
-        elevation: 2
-    },
-    loginButton: {
-        backgroundColor: '#26C6DA',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 10,
-        elevation: 4,
-    },
-    buttonDisabled: {
-        backgroundColor: '#80DEEA'
-    },
-    loginText: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold'
-    },
-    footer: {
-        marginTop: 30,
-        alignItems: 'center'
-    },
-    footerText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 14
-    }
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
+    scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 25 },
+    logoContainer: { alignItems: 'center', marginBottom: 40 },
+    logoBox: { width: 80, height: 80, backgroundColor: 'white', borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 15, elevation: 8 },
+    title: { fontSize: 28, fontWeight: 'bold', color: 'white', letterSpacing: 0.5 },
+    subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginTop: 5 },
+    formContainer: { width: '100%' },
+    inputGroup: { marginBottom: 20 },
+    label: { color: 'white', marginBottom: 8, fontSize: 14, fontWeight: '600', marginLeft: 4 },
+    input: { backgroundColor: 'white', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, fontSize: 16, color: '#333', elevation: 2 },
+    loginButton: { backgroundColor: '#26C6DA', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 10, elevation: 4 },
+    buttonDisabled: { backgroundColor: '#80DEEA' },
+    loginText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    footer: { marginTop: 30, alignItems: 'center' },
+    footerText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 }
 });

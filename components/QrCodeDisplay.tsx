@@ -1,7 +1,5 @@
-//components/QrCodeDisplay.tsx
-
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function QrCodeDisplay({ qrValue, readableCode }: { qrValue: string, readableCode: string }) {
@@ -11,13 +9,22 @@ export default function QrCodeDisplay({ qrValue, readableCode }: { qrValue: stri
 
             <View style={styles.qrContainer}>
                 {qrValue ? (
-                    <QRCode value={qrValue} size={180} />
+                    /* QR Code akan digenerate dari string qrValue */
+                    <QRCode
+                        value={qrValue}
+                        size={180}
+                        color="black"
+                        backgroundColor="white"
+                    />
                 ) : (
-                    <Text>Loading...</Text>
+                    <View style={styles.loadingBox}>
+                        <ActivityIndicator color="#5B4DBC" />
+                        <Text style={styles.loadingText}>Generating QR...</Text>
+                    </View>
                 )}
             </View>
 
-            <Text style={styles.codeText}>{readableCode}</Text>
+            <Text style={styles.codeText}>{readableCode || "------"}</Text>
             <Text style={styles.hint}>Tunjukkan QR code ini ke admin laboratorium</Text>
         </View>
     );
@@ -26,19 +33,38 @@ export default function QrCodeDisplay({ qrValue, readableCode }: { qrValue: stri
 const styles = StyleSheet.create({
     card: {
         backgroundColor: 'white',
-        borderRadius: 16,
+        borderRadius: 20,
         padding: 25,
         alignItems: 'center',
         marginBottom: 16,
-        shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 3,
+        // Shadow biar kelihatan premium
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
     },
-    title: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 20 },
+    title: { fontSize: 16, fontWeight: '600', color: '#666', marginBottom: 20 },
     qrContainer: {
-        padding: 10,
-        backgroundColor: 'white', // Pastikan background putih biar QR kebaca
-        borderRadius: 10,
+        padding: 15,
+        backgroundColor: 'white',
+        borderRadius: 15,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
         marginBottom: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: 200,
+        minWidth: 200
     },
-    codeText: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 10, letterSpacing: 0.5 },
-    hint: { fontSize: 12, color: '#999', marginTop: 8, textAlign: 'center' },
+    codeText: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#5B4DBC',
+        marginTop: 10,
+        letterSpacing: 2 // Biar kode lebih enak dibaca
+    },
+    hint: { fontSize: 13, color: '#999', marginTop: 10, textAlign: 'center', paddingHorizontal: 20 },
+    loadingBox: { alignItems: 'center' },
+    loadingText: { marginTop: 10, color: '#999', fontSize: 12 }
 });

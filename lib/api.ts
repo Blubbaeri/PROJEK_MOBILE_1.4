@@ -25,9 +25,7 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         if (error.response?.status === 401) {
-            // Token expired, logout user
             console.log('Token expired, logging out...');
-            // Optional: trigger logout
         }
         return Promise.reject(error);
     }
