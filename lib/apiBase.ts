@@ -1,4 +1,4 @@
-// app/lib/apiBase.ts
+//lib/apiBase.ts
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -8,7 +8,7 @@ export function getApiBaseUrl(): string {
     // **EDIT IP DI SINI SAJA!**
     //const ACTIVE_IP = '10.1.6.125'; // <-- GANTI DI SINI KALO GANTI WiFi
     //const ACTIVE_IP = '192.168.100.3'; // <-- GANTI DI SINI KALO GANTI WiFi
-    const ACTIVE_IP = '10.1.14.15';
+    const ACTIVE_IP = '192.168.100.5';
     //const ACTIVE_IP = '192.168.207.1'; // <-- GANTI DI SINI KALO GANTI WiFi
     //const ACTIVE_IP = '172.31.16.1';
 

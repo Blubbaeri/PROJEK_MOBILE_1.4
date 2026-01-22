@@ -265,8 +265,8 @@ export default function HomeScreen() {
             if (!availableData || availableData.availableStock <= 0) {
                 Toast.show({
                     type: 'error',
-                    text1: 'Stok habis',
-                    text2: `${item.name} tidak tersedia saat ini`
+                    text1: 'Sedang dipesan',
+                    text2: `${item.name} sedang dipesan orang lain (Total: ${availableData?.totalStock || 0})`
                 });
                 return;
             }
