@@ -54,44 +54,56 @@ export default function HomeScreen() {
 
             if (categoryName === null) {
                 console.log('📦 Fetching ALL equipment WITH stock...');
-                const res = await api.get('/api/Equipment/GetAllEquipmentWithStock');
+                const res = await api.get('/api/Equipment/GetAllEquipmentWithStock', {
+                    params: {
+                        PageSize: 100,  
+                        PageNumber: 1,
+                        CheckTime: new Date().toISOString() 
+                    }
+                });
 
-                // Handle response structure: Object dengan property "data"
+                // Handle response structure
                 if (res.data && res.data.data && Array.isArray(res.data.data)) {
                     equipmentData = res.data.data;
                     console.log('📦 All equipment count:', equipmentData.length);
                 } else if (Array.isArray(res.data)) {
-                    equipmentData = res.data; // Fallback
+                    equipmentData = res.data;
                 }
             } else {
                 const cat = categories.find(c => c.name === categoryName);
                 if (!cat) return;
 
                 console.log(`📦 Fetching equipment for category ${cat.id} (${cat.name}) WITH stock...`);
-                const res = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`);
+                const res = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`, {
+                    params: {
+                        PageSize: 100,
+                        PageNumber: 1,
+                        CheckTime: new Date().toISOString() // ⭐⭐ TAMBAH WAKTU SEKARANG
+                    }
+                });
 
-                // Handle response structure: Array langsung
                 if (Array.isArray(res.data)) {
                     equipmentData = res.data;
                     console.log('📦 Category equipment count:', equipmentData.length);
                 }
             }
 
-            // Normalize data - AMBIL availableStock DARI API
+            // Normalize data
             const normalizedData = equipmentData.map((item: any) => {
+                const availableStock = item.availableStock ?? (item.stock ?? 0);
+
                 return {
-                    id: item.id, // PER_ID
+                    id: item.id, 
                     name: item.name,
-                    equipmentId: item.id, // SAMA DENGAN id (PER_ID)
+                    equipmentId: item.id,
                     equipmentName: item.name,
                     categoryId: item.categoryId,
                     categoryName: item.categoryName,
                     locationId: item.locationId,
                     locationName: item.locationName,
                     status: item.status || 'active',
-                    // ⬇️ AMBIL DARI availableStock!
-                    stock: item.availableStock || 0,
-                    availableStock: item.availableStock || 0,
+                    stock: availableStock, 
+                    availableStock: availableStock,
                     totalStock: item.totalStock || 0,
                     image: item.image || null,
                 };
@@ -111,15 +123,71 @@ export default function HomeScreen() {
                 status: err.response?.status,
                 data: err.response?.data
             });
-            setEquipment([]);
-            setConnectionError(true);
+
+            // FALLBACK: Coba ambil tanpa pagination
+            if (err.response?.status === 400) {
+                try {
+                    await fetchDataWithoutPagination(categoryName);
+                } catch {
+                    setEquipment([]);
+                    setConnectionError(true);
+                }
+            } else {
+                setEquipment([]);
+                setConnectionError(true);
+            }
+        }
+    };
+
+    /* FUNCTION FALLBACK TANGA PAGINATION */
+    const fetchDataWithoutPagination = async (categoryName: string | null) => {
+        try {
+            let url = '';
+
+            if (categoryName === null) {
+                url = '/api/Equipment/GetAllEquipmentWithStock';
+            } else {
+                const cat = categories.find(c => c.name === categoryName);
+                if (!cat) return;
+                url = `/api/Equipment/GetByCategoryIdWithStock/${cat.id}`;
+            }
+
+            const res = await api.get(url);
+
+            let equipmentData: any[] = [];
+            if (res.data && res.data.data && Array.isArray(res.data.data)) {
+                equipmentData = res.data.data;
+            } else if (Array.isArray(res.data)) {
+                equipmentData = res.data;
+            }
+
+            const normalizedData = equipmentData.map((item: any) => ({
+                id: item.id,
+                name: item.name,
+                equipmentId: item.id,
+                equipmentName: item.name,
+                categoryId: item.categoryId,
+                categoryName: item.categoryName,
+                locationId: item.locationId,
+                locationName: item.locationName,
+                status: item.status || 'active',
+                stock: item.availableStock || 0,
+                availableStock: item.availableStock || 0,
+                totalStock: item.totalStock || 0,
+                image: item.image || null,
+            }));
+
+            setEquipment(normalizedData);
+            setConnectionError(false);
+
+        } catch (error) {
+            throw error;
         }
     };
 
     /* SEARCH EQUIPMENT */
     const handleSearch = async () => {
         if (!searchQuery.trim()) {
-            // Kalo search kosong, tampilkan semua berdasarkan category
             fetchData(selectedCategory);
             return;
         }
@@ -238,7 +306,6 @@ export default function HomeScreen() {
 
     const handleAddToCart = async (item: any) => {
         try {
-            // CEK STOCK DARI ITEM YANG SUDAH ADA DI STATE
             const currentStock = item.availableStock || item.stock || 0;
             console.log('🛒 Checking stock before add:', {
                 itemName: item.name,
@@ -254,7 +321,7 @@ export default function HomeScreen() {
                 return;
             }
 
-            const equipmentId = item.id; // PER_ID
+            const equipmentId = item.id;
             console.log('🛒 Getting available PSA IDs for equipment:', equipmentId);
 
             const res = await api.get(`/api/Equipment/GetAvailablePsaIds/${equipmentId}`);
@@ -288,8 +355,8 @@ export default function HomeScreen() {
             });
 
             addToCart({
-                id: psaId,        // ⭐⭐ PSA_ID untuk cart
-                perId: equipmentId, // ⭐⭐ PER_ID untuk API
+                id: psaId,       
+                perId: equipmentId, 
                 name: item.name,
                 price: 0,
                 quantity: 1,

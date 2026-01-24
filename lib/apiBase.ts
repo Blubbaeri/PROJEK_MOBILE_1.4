@@ -6,11 +6,13 @@ export function getApiBaseUrl(): string {
     const PORT = 5234;
 
     // **EDIT IP DI SINI SAJA!**
-    //const ACTIVE_IP = '10.1.6.125'; // <-- GANTI DI SINI KALO GANTI WiFi
-    //const ACTIVE_IP = '192.168.100.3'; // <-- GANTI DI SINI KALO GANTI WiFi
-    const ACTIVE_IP = '192.168.100.5';
-    //const ACTIVE_IP = '192.168.207.1'; // <-- GANTI DI SINI KALO GANTI WiFi
+    //const ACTIVE_IP = '10.1.6.125'; 
+    //const ACTIVE_IP = '192.168.100.3'; 
+    //const ACTIVE_IP = '192.168.100.5';
+    //const ACTIVE_IP = '192.168.207.1'; 
     //const ACTIVE_IP = '172.31.16.1';
+    //const ACTIVE_IP = '10.209.114.95';
+    const ACTIVE_IP = '10.1.14.15';
 
     // Untuk development mode (emulator)
     if (__DEV__) {

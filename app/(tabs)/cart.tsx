@@ -28,10 +28,10 @@ export default function CartScreen() {
     const timeFlatListRef = useRef<FlatList>(null);
     const mainFlatListRef = useRef<FlatList>(null);
 
-    // --- SCROLL KE 07:30 SAAT PERTAMA KALI RENDER ---
+    // SCROLL KE 07:30 SAAT PERTAMA KALI RENDER 
     useEffect(() => {
         const scrollToInitialTime = () => {
-            // Cari index dari jam 07:30 di array (ingat ada 2 slot kosong di awal)
+            // Cari index dari jam 07:30 di array 
             const targetTime = '07:30';
             const index = timeSlots.findIndex(slot => slot === targetTime);
 
@@ -59,7 +59,7 @@ export default function CartScreen() {
         scrollToInitialTime();
     }, []);
 
-    // --- LOGIC TANGGAL ---
+    // LOGIC TANGGAL
     const dateOptions = useMemo(() => {
         const options = [];
         for (let i = 0; i < 2; i++) {
@@ -80,7 +80,7 @@ export default function CartScreen() {
 
     const [selectedDate, setSelectedDate] = useState(dateOptions[0]);
 
-    // --- LOGIC JAM ---
+    // LOGIC JAM 
     const timeSlots = useMemo(() => {
         const slots = [];
         let start = new Date();
@@ -91,11 +91,11 @@ export default function CartScreen() {
             slots.push(start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':'));
             start.setMinutes(start.getMinutes() + 5);
         }
-        // Tambah padding di awal dan akhir (2 slot kosong)
+        // Tambah padding di awal dan akhir 
         return ['', '', ...slots, '', ''];
     }, []);
 
-    // --- HANDLER SCROLL JAM ---
+    // HANDLER SCROLL JAM 
     const handleTimeScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
         const y = event.nativeEvent.contentOffset.y;
         const rawIndex = Math.round(y / ITEM_HEIGHT);
@@ -115,7 +115,7 @@ export default function CartScreen() {
             const response = await api.get('/api/Borrowing');
             console.log("✅ Connection OK!");
             return true;
-        } catch (error: any) {  // ⭐⭐ TAMBAH `: any`
+        } catch (error: any) {  
             console.error("❌ Checkout Error:", error.response?.data || error.message);
             console.log("   BaseURL:", api.defaults.baseURL);
             return false;
@@ -128,7 +128,7 @@ export default function CartScreen() {
 
         setIsBooking(true);
         try {
-            // ⭐⭐ 1. CEK TOKEN DULU
+            // 1. CEK TOKEN DULU
             const token = await AsyncStorage.getItem('user-token');
             console.log("🔑 Token check:", token ? "✅ ADA" : "❌ TIDAK ADA");
 
@@ -145,11 +145,11 @@ export default function CartScreen() {
                 return;
             }
 
-            // ⭐⭐ 2. DEBUG API CONNECTION
+            // 2. DEBUG API CONNECTION
             console.log("🌐 API BaseURL:", api.defaults.baseURL);
             console.log("🔗 Full endpoint:", `${api.defaults.baseURL}/api/Borrowing/CreatePeminjaman`);
 
-            // ⭐⭐ 3. TEST CONNECTION DULU
+            // 3. TEST CONNECTION DULU
             try {
                 const testResponse = await api.get('/api/Borrowing');
                 console.log("✅ Connection test OK:", testResponse.status);
@@ -157,7 +157,7 @@ export default function CartScreen() {
                 console.log("⚠️ Connection test warning:", testError.message);
             }
 
-            // ⭐⭐ 4. BUILD PAYLOAD
+            // 4. BUILD PAYLOAD
             const scheduledTime = `${selectedDate.fullDate}T${selectedTime}:00`;
             const maxReturnTime = `${selectedDate.fullDate}T16:30:00`;
 
@@ -175,12 +175,12 @@ export default function CartScreen() {
 
             console.log("🚀 Payload to API:", JSON.stringify(borrowingData, null, 2));
 
-            // ⭐⭐ 5. SEND REQUEST DENGAN EXTRA HEADER (JIKA PERLU)
+            // 5. SEND REQUEST DENGAN EXTRA HEADER 
             console.log("📤 Sending request...");
 
             const response = await api.post('/api/Borrowing/CreatePeminjaman', borrowingData, {
                 headers: {
-                    'Authorization': `Bearer ${token}`, // ⭐⭐ PASTIKAN ADA
+                    'Authorization': `Bearer ${token}`, 
                     'Content-Type': 'application/json'
                 }
             });
@@ -234,7 +234,7 @@ export default function CartScreen() {
         }
     };
 
-    // --- RENDER ITEM UNTUK MAIN FLATLIST ---
+    // RENDER ITEM UNTUK MAIN FLATLIST 
     const renderSection = ({ item }: { item: { type: string } }) => {
         if (item.type === 'cart-items') {
             return (
@@ -275,7 +275,7 @@ export default function CartScreen() {
                             <View style={styles.activeHighlight} />
 
                             {Platform.OS === 'ios' ? (
-                                // UNTUK iOS: PAKAI FLATLIST (BIASA)
+                                // UNTUK iOS: PAKAI FLATLIST 
                                 <FlatList
                                     ref={timeFlatListRef}
                                     data={timeSlots}
@@ -377,7 +377,7 @@ export default function CartScreen() {
         return null;
     };
 
-    // --- DATA UNTUK MAIN FLATLIST ---
+    // DATA UNTUK MAIN FLATLIST 
     const sectionsData = useMemo(() => {
         if (cartItems.length === 0) {
             return [{ type: 'empty-cart' }];
@@ -426,32 +426,32 @@ const styles = StyleSheet.create({
     },
     bookingSection: {
         padding: 20,
-        paddingHorizontal: 16 // ⬅️ TAMBAH UNTUK DEVICE KECIL
+        paddingHorizontal: 16 
     },
     sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
         marginBottom: 15,
-        textAlign: 'center' // ⬅️ RATA TENGAH
+        textAlign: 'center' 
     },
     dateRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 20,
-        gap: 10 // ⬅️ TAMBAH GAP
+        gap: 10 
     },
     dateCard: {
         backgroundColor: 'white',
-        flex: 1, // ⬅️ GANTI DARI '48%' KE 'flex: 1'
-        minWidth: 0, // ⬅️ PENTING UNTUK FLEX: 1
-        padding: 12, // ⬅️ KURANGI SEDIKIT
+        flex: 1,
+        minWidth: 0, 
+        padding: 12, 
         borderRadius: 20,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#EEE',
         elevation: 2,
-        marginHorizontal: 4 // ⬅️ TAMBAH MARGIN
+        marginHorizontal: 4
     },
     dateCardActive: {
         backgroundColor: '#5B4DBC',
@@ -461,24 +461,24 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#999',
         marginBottom: 4,
-        textAlign: 'center', // ⬅️ RATA TENGAH
-        flexWrap: 'wrap', // ⬅️ BIAR TEXT WRAP
-        flexShrink: 1 // ⬅️ BIAR GA KEPOTONG
+        textAlign: 'center', 
+        flexWrap: 'wrap',
+        flexShrink: 1 
     },
     dateDay: {
         fontSize: 16,
         fontWeight: 'bold',
         color: '#333',
-        textAlign: 'center', // ⬅️ RATA TENGAH
-        flexWrap: 'wrap', // ⬅️ BIAR TEXT WRAP
-        flexShrink: 1 // ⬅️ BIAR GA KEPOTONG
+        textAlign: 'center',
+        flexWrap: 'wrap',
+        flexShrink: 1 
     },
     dateValue: {
         fontSize: 14,
         color: '#666',
-        textAlign: 'center', // ⬅️ RATA TENGAH
-        flexWrap: 'wrap', // ⬅️ BIAR TEXT WRAP
-        flexShrink: 1 // ⬅️ BIAR GA KEPOTONG
+        textAlign: 'center', 
+        flexWrap: 'wrap', 
+        flexShrink: 1 
     },
     textWhite: {
         color: 'white'
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
         color: '#666',
         marginBottom: 10,
         fontWeight: '600',
-        textAlign: 'center' // ⬅️ RATA TENGAH
+        textAlign: 'center' 
     },
     wheelWrapper: {
         backgroundColor: '#1C1C1E',
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
         height: ITEM_HEIGHT * 5,
         overflow: 'hidden',
         justifyContent: 'center',
-        marginHorizontal: 5 // ⬅️ TAMBAH MARGIN
+        marginHorizontal: 5 
     },
     activeHighlight: {
         position: 'absolute',
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     },
     footerSummary: {
         flexDirection: 'row',
-        justifyContent: 'space-between', // ⬅️ GANTI DARI 'space-around'
+        justifyContent: 'space-between',
         marginVertical: 20,
         gap: 10 // ⬅️ TAMBAH GAP
     },
@@ -544,12 +544,12 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: '#EEE',
-        flex: 1, // ⬅️ BIAR SAMA LEBAR
-        marginHorizontal: 5, // ⬅️ TAMBAH MARGIN
-        justifyContent: 'center' // ⬅️ RATA TENGAH
+        flex: 1, 
+        marginHorizontal: 5, 
+        justifyContent: 'center'
     },
     summaryText: {
-        fontSize: 12, // ⬅️ KECILKAN SEDIKIT
+        fontSize: 12, 
         fontWeight: '600',
         color: '#5B4DBC',
         textAlign: 'center',
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     },
     proceedBtn: {
         backgroundColor: '#5B4DBC',
-        padding: 16, // ⬅️ KURANGI SEDIKIT
+        padding: 16,
         borderRadius: 20,
         flexDirection: 'row',
         justifyContent: 'center',
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 16,
-        marginRight: 8 // ⬅️ KURANGI SEDIKIT
+        marginRight: 8
     },
     emptyCart: {
         flex: 1,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 60,
         minHeight: 400,
-        paddingHorizontal: 20 // ⬅️ TAMBAH PADDING SAMPING
+        paddingHorizontal: 20 
     },
     emptyText: {
         fontSize: 18,
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 30,
         paddingVertical: 12,
         borderRadius: 25,
-        minWidth: 150 // ⬅️ MINIMAL WIDTH
+        minWidth: 150 
     },
     browseBtnText: {
         color: 'white',

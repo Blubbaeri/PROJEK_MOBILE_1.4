@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getApiBaseUrl } from '../../lib/apiBase'; // ✅ IMPORT INI
+import { getApiBaseUrl } from '../../lib/apiBase'; 
 
 export default function LoginScreen() {
     const router = useRouter();
@@ -37,16 +37,16 @@ export default function LoginScreen() {
         try {
             console.log('Starting login process...');
 
-            // ✅ Debug: Tampilkan URL yang digunakan
+            //Tampilkan URL yang digunakan
             const API_BASE = getApiBaseUrl();
             console.log('📡 API Base URL:', API_BASE);
             console.log('🔗 Login URL:', `${API_BASE}/api/Auth/login`);
 
-            // 1️⃣ LOGIN KE API - Extract username dari email
+            // 1️ LOGIN KE API - Extract username dari email
             const username = email.replace('@student.simpel.lab', '');
             console.log('👤 Username:', username);
 
-            // ✅ Gunakan API_BASE dari fungsi
+            // Gunakan API_BASE dari fungsi
             const loginResponse = await fetch(`${API_BASE}/api/Auth/login`, {
                 method: 'POST',
                 headers: {
@@ -73,7 +73,7 @@ export default function LoginScreen() {
             const firstToken = loginData.token;
             console.log('🔑 First token received:', firstToken ? 'YES' : 'NO');
 
-            // 2️⃣ GET PERMISSION TOKEN
+            // 2️ GET PERMISSION TOKEN
             console.log('🔄 Getting permission token...');
             console.log('🔗 Permission URL:', `${API_BASE}/api/Auth/getpermission`);
 
@@ -110,7 +110,7 @@ export default function LoginScreen() {
             await signIn(finalToken, permissions);
             console.log('💾 Token saved to AuthContext');
 
-            // 4️⃣ NAVIGASI KE HOME
+            // 4️ NAVIGASI KE HOME
             console.log('🚀 Navigating to home...');
             router.replace('/(tabs)');
 
@@ -118,7 +118,6 @@ export default function LoginScreen() {
             console.error('❌ Login error:', error);
             console.error('🔍 Error details:', error.message);
 
-            // ✅ Pesan error yang lebih informatif
             let errorMessage = error.message;
             if (error.message.includes('Network request failed')) {
                 errorMessage = `Gagal terhubung ke server:\n\n` +
@@ -199,7 +198,6 @@ export default function LoginScreen() {
     );
 }
 
-// ... (style tetap sama seperti sebelumnya)
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#5B4DBC' },
     scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 25 },
