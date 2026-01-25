@@ -1,14 +1,14 @@
 ﻿// app/(tabs)/index.tsx
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, StyleSheet, StatusBar, ActivityIndicator, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { useCart } from '../../context/CartContext';
 import { api } from '../../lib/api';
 
-import HomeHeader from '../../components/HomeHeader';
 import EquipmentList from '../../components/EquipmentList';
+import HomeHeader from '../../components/HomeHeader';
 
 type Category = {
     id: number;
@@ -78,7 +78,7 @@ export default function HomeScreen() {
                     params: {
                         PageSize: 100,
                         PageNumber: 1,
-                        CheckTime: new Date().toISOString() // ⭐⭐ TAMBAH WAKTU SEKARANG
+                        CheckTime: new Date().toISOString() 
                     }
                 });
 
