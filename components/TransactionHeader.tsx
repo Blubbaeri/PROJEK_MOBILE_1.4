@@ -1,9 +1,10 @@
 // components/TransactionHeader.tsx
 
-import React from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { FontAwesome, Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // 1. Tambahkan import router
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Definisi Tipe Tab dengan semua status
 type TabType = 'All' | 'Booked' | 'Diproses' | 'Dipinjam' | 'Dikembalikan' | 'Selesai' | 'Ditolak';
@@ -13,7 +14,7 @@ type TransactionHeaderProps = {
     setSearchQuery: (text: string) => void;
     selectedTab: TabType;
     setSelectedTab: (tab: TabType) => void;
-    onTabChange?: (tab: TabType) => void; // Callback saat tab berubah
+    onTabChange?: (tab: TabType) => void;
 };
 
 const TransactionHeader = ({
@@ -27,35 +28,39 @@ const TransactionHeader = ({
     // Array semua tabs
     const tabs: TabType[] = ['All', 'Booked', 'Diproses', 'Dipinjam', 'Dikembalikan', 'Selesai', 'Ditolak'];
 
+    const router = useRouter();
+
     // Fungsi dummy notifikasi
     const handleNotificationPress = () => {
         Alert.alert("Notifications", "No new transaction updates.");
     };
 
-    const router = useRouter();
-
     // Handler untuk tab press
     const handleTabPress = (tab: TabType) => {
         setSelectedTab(tab);
-        // Panggil callback jika ada
         if (onTabChange) {
             onTabChange(tab);
         }
     };
 
     return (
-        <View style={styles.headerContainer}>
+        <LinearGradient
+            colors={['#5B4DBC', '#7B68D4']}
+            style={styles.headerContainer}
+        >
             {/* Bagian Judul & Icon */}
             <View style={styles.headerTop}>
                 {/* KIRI: Ikon Bengkel & Judul */}
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={styles.iconBox}>
-                        {/* Ikon Kunci Inggris */}
-                        <FontAwesome name="wrench" size={22} color="#5B4DBC" />
-                    </View>
-                    <View>
-                        <Text style={styles.headerTitle}>Lab Equipment</Text>
-                        <Text style={styles.headerSubtitle}>Student Portal</Text>
+                <View style={styles.leftSection}>
+                    <LinearGradient
+                        colors={['#26C6DA', '#00ACC1']}
+                        style={styles.iconBox}
+                    >
+                        <FontAwesome name="wrench" size={22} color="white" />
+                    </LinearGradient>
+                    <View style={styles.titleContainer}>
+                        <Text style={styles.headerTitle}>Equipment Manager</Text>
+                        <Text style={styles.headerSubtitle}>Management System</Text>
                     </View>
                 </View>
 
@@ -63,49 +68,57 @@ const TransactionHeader = ({
                 <View style={styles.rightActions}>
                     {/* Tombol Notifikasi */}
                     <TouchableOpacity
-                        style={[styles.avatarPlaceholder, { marginRight: 10 }]}
+                        style={styles.actionButton}
                         onPress={handleNotificationPress}
+                        activeOpacity={0.7}
                     >
-                        <FontAwesome name="bell" size={16} color="#5B4DBC" />
-                        {/* Titik Merah Notifikasi */}
-                        <View style={styles.notifDot} />
+                        <View style={styles.iconWrapper}>
+                            <FontAwesome name="bell" size={18} color="white" />
+                            {/* Titik Merah Notifikasi */}
+                            <View style={styles.notifDot} />
+                        </View>
                     </TouchableOpacity>
 
-                    {/* 3. UBAH DISINI: Ikon User sekarang bisa diklik ke Profile */}
+                    {/* Ikon User */}
                     <TouchableOpacity
-                        style={styles.avatarPlaceholder}
+                        style={styles.actionButton}
                         onPress={() => router.push('/profile')}
                         activeOpacity={0.7}
                     >
-                        <FontAwesome name="user" size={18} color="#5B4DBC" />
+                        <View style={styles.iconWrapper}>
+                            <FontAwesome name="user" size={18} color="white" />
+                        </View>
                     </TouchableOpacity>
                 </View>
             </View>
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
-                <Ionicons name="search" size={20} color="#DDD" style={{ marginRight: 10 }} />
+                <View style={styles.searchIconWrapper}>
+                    <Ionicons name="search" size={20} color="white" />
+                </View>
                 <TextInput
                     style={styles.searchInput}
                     placeholder="Search transaction..."
-                    placeholderTextColor="#DDD"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                 />
             </View>
 
             {/* Tabs Filter */}
-            <View style={{ height: 40, marginTop: 5 }}>
+            <View style={styles.categoryWrapper}>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingRight: 20 }}
+                    contentContainerStyle={styles.categoryScrollContent}
                 >
                     {tabs.map((tab) => (
                         <TouchableOpacity
                             key={tab}
                             style={[styles.catPill, selectedTab === tab && styles.catPillActive]}
                             onPress={() => handleTabPress(tab)}
+                            activeOpacity={0.7}
                         >
                             <Text style={[styles.catText, selectedTab === tab && styles.catTextActive]}>
                                 {tab}
@@ -114,7 +127,9 @@ const TransactionHeader = ({
                     ))}
                 </ScrollView>
             </View>
-        </View>
+
+
+        </LinearGradient>
     );
 };
 
@@ -122,8 +137,12 @@ const styles = StyleSheet.create({
     headerContainer: {
         paddingTop: 50,
         paddingHorizontal: 20,
-        paddingBottom: 25,
-        backgroundColor: '#5B4DBC',
+        paddingBottom: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 8,
     },
     headerTop: {
         flexDirection: 'row',
@@ -131,78 +150,156 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 20,
     },
-    // Container untuk Lonceng + User
+
+    // Left Section
+    leftSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    iconBox: {
+        width: 50,
+        height: 50,
+        borderRadius: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+        shadowColor: '#26C6DA',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    titleContainer: {
+        flex: 1,
+    },
+    headerTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: 'white',
+        letterSpacing: 0.5,
+        textShadowColor: 'rgba(0, 0, 0, 0.2)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: 2,
+        letterSpacing: 0.3,
+    },
+
+    // Right Actions
     rightActions: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 10,
     },
-    iconBox: {
-        width: 45, height: 45,
-        backgroundColor: 'white',
-        borderRadius: 12,
-        justifyContent: 'center', alignItems: 'center',
-        marginRight: 12
+    actionButton: {
+        width: 42,
+        height: 42,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-    headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
-
-    // Style Placeholder untuk Lonceng & User
-    avatarPlaceholder: {
-        width: 35, height: 35,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 12,
-        justifyContent: 'center', alignItems: 'center',
-        position: 'relative'
+    iconWrapper: {
+        position: 'relative',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    // Titik merah notifikasi
     notifDot: {
         position: 'absolute',
-        top: 8, right: 8,
-        width: 6, height: 6,
+        top: -6,
+        right: -6,
+        width: 8,
+        height: 8,
         backgroundColor: '#FF5252',
-        borderRadius: 3,
-        borderWidth: 1, borderColor: '#5B4DBC'
+        borderRadius: 4,
+        borderWidth: 2,
+        borderColor: '#5B4DBC',
     },
 
+    // Search Bar
     searchContainer: {
         flexDirection: 'row',
         backgroundColor: 'rgba(255,255,255,0.15)',
-        borderRadius: 12,
+        borderRadius: 14,
         paddingHorizontal: 15,
         alignItems: 'center',
-        height: 50,
-        marginBottom: 20,
+        height: 52,
+        marginBottom: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)'
+        borderColor: 'rgba(255,255,255,0.25)',
+        elevation: 3,
     },
-    searchInput: { flex: 1, color: 'white', fontSize: 16 },
+    searchIconWrapper: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    searchInput: {
+        flex: 1,
+        color: 'white',
+        fontSize: 16,
+        letterSpacing: 0.3,
+    },
 
-    // Style Tabs (diperbarui untuk tab yang lebih banyak)
+    // Categories/Tabs
+    categoryWrapper: {
+        height: 42,
+        marginBottom: 10,
+    },
+    categoryScrollContent: {
+        paddingRight: 20,
+        alignItems: 'center',
+    },
     catPill: {
-        paddingVertical: 8,
-        paddingHorizontal: 15, // Dikurangi sedikit
-        borderRadius: 25,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginRight: 8, // Dikurangi margin
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        marginRight: 8,
         borderWidth: 1,
-        borderColor: 'transparent',
-        minWidth: 70, // Minimum width untuk konsistensi
+        borderColor: 'rgba(255,255,255,0.2)',
+        minWidth: 70,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
     },
     catPillActive: {
         backgroundColor: 'white',
-        borderColor: 'rgba(255,255,255,0.3)'
+        borderColor: 'white',
+        shadowColor: '#26C6DA',
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 4,
     },
     catText: {
-        color: 'rgba(255,255,255,0.8)',
+        color: 'rgba(255,255,255,0.85)',
         fontWeight: '600',
-        fontSize: 12, // Dikecilkan sedikit
-        textAlign: 'center'
+        fontSize: 13,
+        textAlign: 'center',
+        letterSpacing: 0.3,
     },
     catTextActive: {
         color: '#5B4DBC',
         fontWeight: 'bold',
-        fontSize: 12
+        fontSize: 13,
     },
+
 });
 
 export default TransactionHeader;

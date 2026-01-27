@@ -1,14 +1,16 @@
 ﻿// app/(tabs)/index.tsx
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 
 import { useCart } from '../../context/CartContext';
 import { api } from '../../lib/api';
+import { getFileUrl } from '../../lib/apiBase';
 
 import EquipmentList from '../../components/EquipmentList';
 import HomeHeader from '../../components/HomeHeader';
+
 
 type Category = {
     id: number;
@@ -30,6 +32,7 @@ export default function HomeScreen() {
     const searchRef = useRef(searchQuery);
     useEffect(() => { searchRef.current = searchQuery; }, [searchQuery]);
 
+
     const mapEquipmentData = (data: any[]) => {
         return data.map((item: any) => {
             const currentStock = item.availableStock ?? item.totalStock ?? item.stock ?? 0;
@@ -41,6 +44,8 @@ export default function HomeScreen() {
                 availableStock: currentStock,
                 totalStock: item.totalStock ?? currentStock,
                 status: item.status || (currentStock > 0 ? 'active' : 'inactive'),
+                // ✅ PAKAI getFileUrl
+                image: item.image ? getFileUrl(item.image) : null,
             };
         });
     };
@@ -49,21 +54,41 @@ export default function HomeScreen() {
         if (!silent) setIsLoading(true);
         try {
             let res;
+            console.log('🔄 Fetching data...');
+            
             if (categoryName === null) {
+                console.log('📡 Calling: /api/Equipment/GetAllEquipmentWithStock');
                 res = await api.get('/api/Equipment/GetAllEquipmentWithStock', {
-                    params: { PageSize: 100, PageNumber: 1, _t: Date.now() } // Tambah timestamp biar gak kena cache disk
+                    params: { PageSize: 100, PageNumber: 1, _t: Date.now() }
                 });
+                console.log('✅ Response:', res.data);
             } else {
                 const cat = categories.find(c => c.name === categoryName);
                 if (!cat) return;
-                res = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`, { params: { _t: Date.now() } });
+                console.log(`📡 Calling: /api/Equipment/GetByCategoryIdWithStock/${cat.id}`);
+                res = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`, { 
+                    params: { _t: Date.now() } 
+                });
+                console.log('✅ Response:', res.data);
             }
 
-            const rawData = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            let rawData: any[] = [];
+            
+            if (Array.isArray(res.data)) {
+                rawData = res.data;
+            } else if (res.data && Array.isArray(res.data.data)) {
+                rawData = res.data.data;
+            } else {
+                rawData = res.data || [];
+            }
+            
+            console.log('📦 Raw data extracted:', rawData.length, 'items');
+            // ✅ PANGGIL mapEquipmentData
             setEquipment(mapEquipmentData(rawData));
             setConnectionError(false);
         } catch (err: any) {
             console.error('❌ Fetch Error:', err.message);
+            console.error('Error details:', err.response?.data);
             setConnectionError(true);
         } finally {
             setIsLoading(false);
@@ -73,15 +98,25 @@ export default function HomeScreen() {
     const handleSearch = async (silent = false) => {
         if (!searchRef.current.trim()) return;
         try {
+            console.log('🔍 Searching:', searchRef.current.trim());
             const res = await api.get('/api/Equipment/SearchWithStock', {
                 params: { term: searchRef.current.trim(), _t: Date.now() }
             });
-            const rawSearchData = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            
+            console.log('🔍 Search response:', res.data);
+            
+            const rawSearchData = Array.isArray(res.data) ? res.data : [];
+            console.log('🔍 Search results:', rawSearchData.length, 'items');
+            
+            // ✅ PAKAI mapEquipmentData juga untuk search
             setEquipment(mapEquipmentData(rawSearchData));
-        } catch (err) {
-            console.error('Search error:', err);
+        } catch (err: any) {
+            console.error('❌ Search error:', err.message);
+            console.error('Error details:', err.response?.data);
         }
     };
+
+
 
     // 1. REFRESH SETIAP KALI TAB DIBUKA (Focus Effect)
     useFocusEffect(

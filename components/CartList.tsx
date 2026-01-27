@@ -1,7 +1,7 @@
 // components/CartList.tsx
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CartItemCard from './CartItemCard';
 
 interface CartListProps {
