@@ -1,18 +1,25 @@
 ﻿// app/(tabs)/cart.tsx
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import {
-    View, StyleSheet, StatusBar, Alert, Text,
-    TouchableOpacity, FlatList, NativeSyntheticEvent,
-    NativeScrollEvent, Platform,
-    ScrollView
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { useCart } from '../../context/CartContext';
-import CartHeader from '../../components/CartHeader';
-import CartList from '../../components/CartList';
-import { api } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Alert,
+    FlatList,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import CartHeader from '../../components/CartHeader';
+import CartList from '../../components/CartList';
+import { useCart } from '../../context/CartContext';
+import { api } from '../../lib/api';
 
 const ITEM_HEIGHT = 50; // Tinggi per baris jam
 
@@ -364,7 +371,7 @@ export default function CartScreen() {
             return (
                 <View style={styles.emptyCart}>
                     <Ionicons name="cart-outline" size={80} color="#CCC" />
-                    <Text style={styles.emptyText}>Keranjang Kosong</Text>
+                    <Text style={styles.emptyText}>Keranjang Kosong a</Text>
                     <TouchableOpacity
                         style={styles.browseBtn}
                         onPress={() => router.push('/(tabs)')}
@@ -404,7 +411,7 @@ export default function CartScreen() {
                     ListEmptyComponent={
                         <View style={styles.emptyCart}>
                             <Ionicons name="cart-outline" size={80} color="#CCC" />
-                            <Text style={styles.emptyText}>Keranjang Kosong</Text>
+                            <Text style={styles.emptyText}>Keranjang Kosong a</Text>
                         </View>
                     }
                 />

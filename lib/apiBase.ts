@@ -7,7 +7,10 @@ export function getApiBaseUrl(): string {
 
     // **EDIT IP DI SINI SAJA!**
     //const ACTIVE_IP = '10.1.6.125'; 
-    const ACTIVE_IP = '10.1.13.107'; 
+    // const ACTIVE_IP = '192.168.100.3';
+    // const ACTIVE_IP = '192.168.1.73'; 
+     const ACTIVE_IP = '10.1.14.15'; 
+    
     //const ACTIVE_IP = '192.168.100.5';
     //const ACTIVE_IP = '192.168.207.1'; 
     //const ACTIVE_IP = '172.31.16.1';
@@ -35,4 +38,10 @@ export function getApiBaseUrl(): string {
 
     // Fallback ke IP aktif (device fisik)
     return `http://${ACTIVE_IP}:${PORT}`;
+}
+
+export function getFileUrl(fileName: string | null): string {
+    if (!fileName) return '';
+    const baseUrl = getApiBaseUrl();
+    return `${baseUrl}/files/alat/${fileName}`;
 }
