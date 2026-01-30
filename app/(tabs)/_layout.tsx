@@ -8,7 +8,7 @@ import { CartProvider, useCart } from '../../context/CartContext';
 import { PaperProvider } from 'react-native-paper';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
-// Konfigurasi Toast
+// Konfigurasi Toast (KODE LAMA LU)
 const toastConfig = {
     success: (props: any) => (
         <BaseToast
@@ -57,15 +57,16 @@ function AppTabsLayout() {
                     }
                 }}
             >
+                {/* 1. EQUIPMENT - KODE LAMA LU */}
                 <Tabs.Screen
                     name="index"
                     options={{
-                        title: 'Equipment', 
+                        title: 'Equipment',
                         tabBarIcon: ({ color }) => <FontAwesome size={24} name="wrench" color={color} />,
                     }}
                 />
 
-                {/* 2. TRANSACTION */}
+                {/* 2. TRANSACTION - KODE LAMA LU */}
                 <Tabs.Screen
                     name="transaction"
                     options={{
@@ -74,7 +75,7 @@ function AppTabsLayout() {
                     }}
                 />
 
-                {/* 3. CART */}
+                {/* 3. CART - KODE LAMA LU */}
                 <Tabs.Screen
                     name="cart"
                     options={{
@@ -92,29 +93,48 @@ function AppTabsLayout() {
                             </View>
                         ),
                     }}
-                />     
+                />
+
+                {/* HALAMAN YANG DISEMBUNYIKAN (HIDDEN ROUTES) - KODE LAMA LU */}
 
                 <Tabs.Screen
                     name="booking-qr"
                     options={{
-                        href: null, // Sembunyikan dari menu bawah
-                        tabBarStyle: { display: 'none' }, // Sembunyikan tab bar saat di halaman ini
+                        href: null,
+                        tabBarStyle: { display: 'none' },
                     }}
                 />
 
                 <Tabs.Screen
                     name="success"
                     options={{
-                        href: null, // Sembunyikan dari menu bawah
+                        href: null,
                         tabBarStyle: { display: 'none' },
                     }}
                 />
 
-
                 <Tabs.Screen
                     name="transaction-detail"
                     options={{
-                        href: null, // Sembunyikan dari menu bawah
+                        href: null,
+                        tabBarStyle: { display: 'none' },
+                    }}
+                />
+
+                {/* TAMBAHAN BARU: TETAP SEMBUNYI (HREF: NULL) */}
+
+                <Tabs.Screen
+                    name="return-item"
+                    options={{
+                        href: null,
+                        tabBarStyle: { display: 'none' },
+                    }}
+                />
+
+                <Tabs.Screen
+                    name="return-qr"
+                    options={{
+                        href: null,
                         tabBarStyle: { display: 'none' },
                     }}
                 />

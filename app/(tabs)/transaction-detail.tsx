@@ -20,9 +20,9 @@ import { api } from '../../lib/api';
 interface TransactionItem {
     equipmentName: string;
     quantity: number;
-    status?: string;        // Tambah ini
-    categoryName?: string;  // Tambah ini  
-    locationName?: string;  // Tambah ini
+    status?: string;
+    categoryName?: string;
+    locationName?: string;
 }
 
 interface Transaction {
@@ -42,9 +42,7 @@ const statusConfig: Record<TransactionStatus, { icon: string; color: string; lab
     Selesai: { icon: 'check-circle', color: '#757575', label: 'Selesai', description: 'Transaksi telah selesai' }
 };
 
-// Fungsi untuk mendapatkan status config dengan handling yang lebih baik
 const getStatusConfig = (status: string) => {
-
     if (!status) {
         return {
             icon: 'question-circle',
@@ -54,10 +52,7 @@ const getStatusConfig = (status: string) => {
         };
     }
 
-    // Cek secara eksplisit semua kemungkinan
     const statusLower = status.toLowerCase().trim();
-
-    // Mapping status dengan case insensitive
     const statusMap: Record<string, TransactionStatus> = {
         'booked': 'Booked',
         'diproses': 'Diproses',
@@ -68,7 +63,6 @@ const getStatusConfig = (status: string) => {
     };
 
     const normalizedStatus = statusMap[statusLower];
-
     if (normalizedStatus && normalizedStatus in statusConfig) {
         return statusConfig[normalizedStatus];
     }
@@ -97,38 +91,19 @@ export default function TransactionDetailScreen() {
 
     const stopPolling = useCallback(() => {
         if (pollingRef.current) {
-            console.log('🛑 Stopping polling...');
             clearInterval(pollingRef.current);
             pollingRef.current = null;
         }
     }, []);
 
     const startPolling = useCallback((id: number) => {
-        console.log(`🔄 Starting polling for transaction ${id}`);
-
-        // Stop polling sebelumnya jika ada
         stopPolling();
-
-        // Mulai polling baru
         pollingRef.current = setInterval(async () => {
             try {
-                console.log(`📡 Polling transaction ${id}...`);
-
-                // ⭐ PAKAI ENDPOINT YANG SAMA DENGAN FETCH DATA
                 const res = await api.get(`/api/Borrowing/DetailPeminjaman/${id}`);
-                console.log('📡 Polling response:', {
-                    status: res.status,
-                    data: res.data ? 'received' : 'empty'
-                });
-
                 const borrowingData = res.data;
+                if (!borrowingData) return;
 
-                if (!borrowingData) {
-                    console.log('⚠️ Polling: No data received');
-                    return;
-                }
-
-                // Process items
                 const apiItems = borrowingData.items || [];
                 const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
                     equipmentName: item.equipmentName || 'Alat',
@@ -141,91 +116,40 @@ export default function TransactionDetailScreen() {
                 const newStatus = borrowingData.status;
                 const currentStatus = transactionRef.current?.status;
 
-                console.log(`📊 Polling: Status ${currentStatus} → ${newStatus}`);
-
-                // Cek jika status berubah
                 if (currentStatus !== newStatus) {
-                    console.log('🔄 Status changed! Updating transaction...');
-
                     setTransaction(prev => {
                         if (!prev) return prev;
-
                         return {
                             ...prev,
                             status: newStatus,
                             items: groupedItems,
-                            // Update semua field dari response
                             qrCode: borrowingData.qrCode || prev.qrCode,
-                            borrowedAt: borrowingData.borrowedAt || prev.borrowedAt,
-                            returnedAt: borrowingData.returnedAt || prev.returnedAt,
-                            isQrVerified: borrowingData.isQrVerified ?? prev.isQrVerified,
-                            isFaceVerified: borrowingData.isFaceVerified ?? prev.isFaceVerified,
-                            scheduledTime: borrowingData.scheduledTime || prev.scheduledTime,
-                            maxReturnTime: borrowingData.maxReturnTime || prev.maxReturnTime
                         };
                     });
 
-                    // Jika status bukan "Booked" lagi, stop polling
                     if (newStatus.toLowerCase() !== 'booked') {
-                        console.log('🛑 Stopping polling - status is no longer "Booked"');
                         stopPolling();
-
-                        // Notify user jika perlu
-                        Alert.alert(
-                            'Status Berubah',
-                            `Status peminjaman berubah menjadi: ${newStatus}`,
-                            [{ text: 'OK' }]
-                        );
+                        Alert.alert('Status Berubah', `Status peminjaman berubah menjadi: ${newStatus}`);
                     }
-                } else {
-                    console.log('✅ Status unchanged');
                 }
-
             } catch (err: any) {
-                console.error('❌ Polling error:', {
-                    message: err.message,
-                    status: err.response?.status,
-                    url: err.config?.url
-                });
-
-                // Jika error 404 atau 401, stop polling
-                if (err.response?.status === 404 || err.response?.status === 401) {
-                    console.log('🛑 Stopping polling due to error');
-                    stopPolling();
-                }
+                if (err.response?.status === 404 || err.response?.status === 401) stopPolling();
             }
-        }, 5000); // Poll setiap 5 detik
-
-        console.log('✅ Polling started');
+        }, 5000);
     }, [stopPolling]);
 
-    // transaction-detail.tsx
     useEffect(() => {
         if (!transactionId) return;
-
         const fetchData = async () => {
             try {
-                console.log(`Fetching transaction ID: ${transactionId}`);
-
-                // ⭐ PAKAI ENDPOINT YANG BENAR
                 const response = await api.get(`/api/Borrowing/DetailPeminjaman/${transactionId}`);
-                console.log('API Response:', response.data);
-
-                // PERHATIAN: Response langsung object, bukan {data: ...}
                 const borrowingData = response.data;
-
                 if (!borrowingData) {
-                    Alert.alert('Error', 'Data transaksi tidak ditemukan');
-                    setTransaction(null);
                     setLoading(false);
                     return;
                 }
 
-                // ⭐ ITEMS SUDAH ADA DI RESPONSE INI!
                 const apiItems = borrowingData.items || [];
-                console.log('Items dari API:', apiItems);
-
-                // Transform items
                 const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
                     equipmentName: item.equipmentName || 'Alat',
                     quantity: item.quantity || 1,
@@ -234,45 +158,24 @@ export default function TransactionDetailScreen() {
                     locationName: item.locationName
                 }));
 
-                // Buat transaction object
                 const transactionData: Transaction = {
                     id: transactionId,
                     status: borrowingData.status as TransactionStatus,
                     qrCode: borrowingData.qrCode || '',
-                    items: groupedItems, // ⭐ PAKAI INI
+                    items: groupedItems,
                     mhsId: borrowingData.mhsId,
                     userName: borrowingData.userName || '',
-                    borrowedAt: borrowingData.borrowedAt,
-                    returnedAt: borrowingData.returnedAt,
-                    isQrVerified: borrowingData.isQrVerified,
-                    isFaceVerified: borrowingData.isFaceVerified,
-                    scheduledTime: borrowingData.scheduledTime,
-                    maxReturnTime: borrowingData.maxReturnTime
                 };
 
-                console.log('Transaction data loaded:', transactionData);
                 setTransaction(transactionData);
-
-                if (transactionData.status === 'Booked') {
-                    startPolling(transactionData.id);
-                }
-
+                if (transactionData.status === 'Booked') startPolling(transactionData.id);
             } catch (err: any) {
-                console.error('ERROR DETAIL:', {
-                    message: err.message,
-                    response: err.response?.data,
-                    status: err.response?.status,
-                    url: err.config?.url
-                });
-
                 Alert.alert('Error', 'Gagal mengambil data transaksi');
             } finally {
                 setLoading(false);
             }
         };
-
         fetchData();
-
         return () => stopPolling();
     }, [transactionId, startPolling, stopPolling]);
 
@@ -285,8 +188,6 @@ export default function TransactionDetailScreen() {
         if (!transaction) return;
         try {
             const res = await api.get(`/api/Borrowing/DetailPeminjaman/${transaction.id}`);
-            console.log('🔄 Manual refresh response:', res.data);
-
             const data = res.data;
             if (data) {
                 const apiItems = data.items || [];
@@ -294,31 +195,17 @@ export default function TransactionDetailScreen() {
                     equipmentName: item.equipmentName || 'Alat',
                     quantity: item.quantity || 1,
                     status: item.status,
-                    categoryName: item.categoryName,
-                    locationName: item.locationName
                 }));
 
                 setTransaction(prev => prev ? {
                     ...prev,
                     status: data.status,
                     items: groupedItems,
-                    qrCode: data.qrCode || prev.qrCode,
-                    borrowedAt: data.borrowedAt || prev.borrowedAt,
-                    returnedAt: data.returnedAt || prev.returnedAt,
-                    isQrVerified: data.isQrVerified ?? prev.isQrVerified,
-                    isFaceVerified: data.isFaceVerified ?? prev.isFaceVerified,
-                    scheduledTime: data.scheduledTime || prev.scheduledTime,
-                    maxReturnTime: data.maxReturnTime || prev.maxReturnTime
                 } : prev);
 
-                Alert.alert(
-                    'Status Diperbarui',
-                    `Status: ${data.status}\nBarang: ${groupedItems.length} item`,
-                    [{ text: 'OK' }]
-                );
+                Alert.alert('Status Diperbarui', `Status: ${data.status}`);
             }
         } catch (error: any) {
-            console.error('Refresh error:', error.message);
             Alert.alert('Error', 'Gagal refresh status');
         }
     };
@@ -326,14 +213,8 @@ export default function TransactionDetailScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <Text>Memuat data transaksi...</Text>
                 <ActivityIndicator size="large" color="#5B4DBC" />
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    style={{ marginTop: 20 }}
-                >
-                    <Text style={{ color: '#5B4DBC' }}>Kembali</Text>
-                </TouchableOpacity>
+                <Text style={{ marginTop: 10 }}>Memuat data...</Text>
             </View>
         );
     }
@@ -342,7 +223,7 @@ export default function TransactionDetailScreen() {
         return (
             <View style={styles.center}>
                 <Ionicons name="alert-circle-outline" size={50} color="#FF5252" />
-                <Text style={{ marginTop: 10 }}>Data Transaksi Tidak Ditemukan</Text>
+                <Text>Data Transaksi Tidak Ditemukan</Text>
                 <TouchableOpacity onPress={handleBack} style={{ marginTop: 20 }}>
                     <Text style={{ color: '#5B4DBC', fontWeight: 'bold' }}>Kembali</Text>
                 </TouchableOpacity>
@@ -350,20 +231,23 @@ export default function TransactionDetailScreen() {
         );
     }
 
-    // Dapatkan status config dengan fallback
     const currentStatus = getStatusConfig(transaction.status);
-
-    // Pengecekan untuk QR dan aktif status
     const statusLower = transaction.status.toLowerCase();
-    const canShowQr = ['booked', 'diproses', 'dipinjam','dikembalikan',].includes(statusLower);
+    const canShowQr = ['booked', 'diproses', 'dipinjam', 'dikembalikan'].includes(statusLower);
     const isActive = statusLower === 'dipinjam';
     const items = transaction.items || [];
 
     const handleGoToQr = () => router.push({ pathname: '/booking-qr', params: { id: transactionId } });
-    const handleReturnPress = () => router.push({ pathname: '/(tabs)/booking-qr' as any, params: { id: transactionId } });
-    const goToTransaction = () => {
-        router.push('/(tabs)/transaction');
+
+    // LOGIC TOMBOL BARU: Mengarah ke return-item dengan mengirimkan ID Transaksi
+    const handleReturnPress = () => {
+        router.push({
+            pathname: '/(tabs)/return-item' as any,
+            params: { id: transactionId } // Kirim ID transaksi ke halaman pilih barang
+        });
     };
+
+    const goToTransaction = () => router.push('/(tabs)/transaction');
 
     return (
         <View style={styles.container}>
