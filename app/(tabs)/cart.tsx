@@ -1,15 +1,13 @@
 ﻿// app/(tabs)/cart.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
     Alert,
     FlatList,
-    NativeScrollEvent,
-    NativeSyntheticEvent,
     Platform,
-    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -21,227 +19,98 @@ import CartList from '../../components/CartList';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../lib/api';
 
-const ITEM_HEIGHT = 50; // Tinggi per baris jam
-
 export default function CartScreen() {
     const router = useRouter();
     const { cartItems, totalItems, removeFromCart, increaseQuantity, decreaseQuantity, clearCart } = useCart();
 
     const [isBooking, setIsBooking] = useState(false);
-    const [selectedTime, setSelectedTime] = useState('07:30');
 
-    // REF HARUS DI DALAM COMPONENT
-    const timeScrollViewRef = useRef<ScrollView>(null);
-    const timeFlatListRef = useRef<FlatList>(null);
-    const mainFlatListRef = useRef<FlatList>(null);
+    // State untuk Tanggal & Jam
+    const [date, setDate] = useState(new Date());
+    const [showPicker, setShowPicker] = useState(false);
+    const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
 
-    // SCROLL KE 07:30 SAAT PERTAMA KALI RENDER 
-    useEffect(() => {
-        const scrollToInitialTime = () => {
-            // Cari index dari jam 07:30 di array 
-            const targetTime = '07:30';
-            const index = timeSlots.findIndex(slot => slot === targetTime);
+    // Format tampilan Tanggal
+    const formatDisplayDate = (d: Date) => {
+        return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    };
 
-            if (index !== -1) {
-                // Delay sedikit biar UI sudah render
-                setTimeout(() => {
-                    if (Platform.OS === 'ios' && timeFlatListRef.current) {
-                        // Untuk FlatList iOS
-                        timeFlatListRef.current.scrollToIndex({
-                            index: index,
-                            animated: false,
-                            viewPosition: 0.5
-                        });
-                    } else if (Platform.OS === 'android' && timeScrollViewRef.current) {
-                        // Untuk ScrollView Android
-                        timeScrollViewRef.current.scrollTo({
-                            y: index * ITEM_HEIGHT,
-                            animated: false
-                        });
-                    }
-                }, 100);
+    // Format tampilan Jam
+    const formatDisplayTime = (d: Date) => {
+        return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
+    };
+
+    // Handler saat user memilih di picker
+    const onPickerChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+        // Di Android, picker langsung tertutup setelah memilih
+        if (Platform.OS === 'android') setShowPicker(false);
+
+        if (selectedDate) {
+            if (pickerMode === 'time') {
+                const hours = selectedDate.getHours();
+                const minutes = selectedDate.getMinutes();
+                const totalMinutes = hours * 60 + minutes;
+                const minLimit = 7 * 60 + 30; // 07:30
+                const maxLimit = 16 * 60 + 30; // 16:30
+
+                if (totalMinutes < minLimit || totalMinutes > maxLimit) {
+                    Alert.alert("Waktu Tidak Sah", "Peminjaman hanya tersedia pukul 07:30 sampai 16:30");
+                    return;
+                }
             }
-        };
-
-        scrollToInitialTime();
-    }, []);
-
-    // LOGIC TANGGAL
-    const dateOptions = useMemo(() => {
-        const options = [];
-        for (let i = 0; i < 2; i++) {
-            const d = new Date();
-            d.setDate(d.getDate() + i);
-            options.push({
-                id: i,
-                fullDate: d.toISOString().split('T')[0],
-                dayName: d.toLocaleDateString('id-ID', { weekday: 'long' }),
-                dateNum: d.toLocaleDateString('id-ID', { day: 'numeric' }),
-                monthName: d.toLocaleDateString('id-ID', { month: 'short' }),
-                year: d.getFullYear(),
-                label: i === 0 ? 'Hari Ini ' : 'Besok '
-            });
-        }
-        return options;
-    }, []);
-
-    const [selectedDate, setSelectedDate] = useState(dateOptions[0]);
-
-    // LOGIC JAM 
-    const timeSlots = useMemo(() => {
-        const slots = [];
-        let start = new Date();
-        start.setHours(7, 30, 0);
-        const end = new Date();
-        end.setHours(16, 30, 0);
-        while (start <= end) {
-            slots.push(start.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':'));
-            start.setMinutes(start.getMinutes() + 5);
-        }
-        // Tambah padding di awal dan akhir 
-        return ['', '', ...slots, '', ''];
-    }, []);
-
-    // HANDLER SCROLL JAM 
-    const handleTimeScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const y = event.nativeEvent.contentOffset.y;
-        const rawIndex = Math.round(y / ITEM_HEIGHT);
-
-        // Batasi index agar tidak keluar dari range
-        const adjustedIndex = Math.max(0, Math.min(rawIndex - 2, timeSlots.filter(s => s !== '').length - 1));
-
-        const actualSlots = timeSlots.filter(s => s !== '');
-        if (adjustedIndex >= 0 && actualSlots[adjustedIndex] && actualSlots[adjustedIndex] !== selectedTime) {
-            setSelectedTime(actualSlots[adjustedIndex]);
+            setDate(selectedDate);
         }
     };
 
-    const testConnection = async () => {
-        try {
-            console.log("🔗 Testing connection to:", api.defaults.baseURL);
-            const response = await api.get('/api/Borrowing');
-            console.log("✅ Connection OK!");
-            return true;
-        } catch (error: any) {  
-            console.error("❌ Checkout Error:", error.response?.data || error.message);
-            console.log("   BaseURL:", api.defaults.baseURL);
-            return false;
-        }
+    const togglePicker = (mode: 'date' | 'time') => {
+        setPickerMode(mode);
+        setShowPicker(true);
     };
 
-    // Panggil di processCheckout
+    // PROSES CHECKOUT
     const processCheckout = async () => {
         if (cartItems.length === 0) return;
-
         setIsBooking(true);
         try {
-            // 1. CEK TOKEN DULU
             const token = await AsyncStorage.getItem('user-token');
-            console.log("🔑 Token check:", token ? "✅ ADA" : "❌ TIDAK ADA");
-
             if (!token) {
-                Alert.alert(
-                    "Login Required",
-                    "Anda harus login terlebih dahulu untuk booking",
-                    [
-                        { text: "Login", onPress: () => router.push('/login') },
-                        { text: "Cancel", style: "cancel" }
-                    ]
-                );
+                Alert.alert("Login", "Silakan login terlebih dahulu");
                 setIsBooking(false);
                 return;
             }
 
-            // 2. DEBUG API CONNECTION
-            console.log("🌐 API BaseURL:", api.defaults.baseURL);
-            console.log("🔗 Full endpoint:", `${api.defaults.baseURL}/api/Borrowing/CreatePeminjaman`);
+            const dateStr = date.toISOString().split('T')[0];
+            const timeStr = formatDisplayTime(date);
+            const scheduledTime = `${dateStr}T${timeStr}:00`;
+            const maxReturnTime = `${dateStr}T16:30:00`;
 
-            // 3. TEST CONNECTION DULU
-            try {
-                const testResponse = await api.get('/api/Borrowing');
-                console.log("✅ Connection test OK:", testResponse.status);
-            } catch (testError: any) {
-                console.log("⚠️ Connection test warning:", testError.message);
-            }
-
-            // 4. BUILD PAYLOAD
-            const scheduledTime = `${selectedDate.fullDate}T${selectedTime}:00`;
-            const maxReturnTime = `${selectedDate.fullDate}T16:30:00`;
-
-            const borrowingData = {
-                mhsId: 1,
-                items: cartItems.map(item => ({
-                    perId: item.perId,
-                    quantity: item.quantity || 1
-                })),
-                scheduledTime: scheduledTime,
-                maxReturnTime: maxReturnTime,
+            const payload = {
+                mhsId: 1, // Sesuaikan dengan logika ID user kamu
+                items: cartItems.map(item => ({ perId: item.perId, quantity: item.quantity || 1 })),
+                scheduledTime,
+                maxReturnTime,
                 status: "booked",
                 createdBy: "Mobile_User"
             };
 
-            console.log("🚀 Payload to API:", JSON.stringify(borrowingData, null, 2));
-
-            // 5. SEND REQUEST DENGAN EXTRA HEADER 
-            console.log("📤 Sending request...");
-
-            const response = await api.post('/api/Borrowing/CreatePeminjaman', borrowingData, {
-                headers: {
-                    'Authorization': `Bearer ${token}`, 
-                    'Content-Type': 'application/json'
-                }
+            const response = await api.post('/api/Borrowing/CreatePeminjaman', payload, {
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            console.log("✅ API Response:", {
-                status: response.status,
-                data: response.data
-            });
-
-            const newId = response.data.id;
-
-            if (newId) {
+            if (response.data.id) {
                 clearCart();
                 router.push({
                     pathname: '/(tabs)/booking-qr',
-                    params: {
-                        id: newId.toString(),
-                        qrCode: response.data.data?.qrCode || '',
-                        scheduledTime: scheduledTime
-                    }
+                    params: { id: response.data.id.toString(), scheduledTime }
                 });
-            } else {
-                Alert.alert("Error", "Gagal mendapatkan ID transaksi.");
             }
-        } catch (error: any) {
-            console.error("❌ Checkout Error Details:", {
-                message: error.message,
-                status: error.response?.status,
-                statusText: error.response?.statusText,
-                url: error.config?.url,
-                method: error.config?.method,
-                data: error.response?.data
-            });
-
-            let errorMsg = "Gagal memproses booking.";
-
-            if (error.response?.status === 401) {
-                errorMsg = "Session expired. Silakan login kembali.";
-                router.push('/login');
-            } else if (error.response?.status === 404) {
-                errorMsg = `Endpoint tidak ditemukan:\n${error.config?.url}\n\nPastikan backend berjalan di port 5234`;
-            } else if (error.response?.data?.message) {
-                errorMsg = error.response.data.message;
-            } else if (error.message.includes('Network Error')) {
-                errorMsg = `Tidak bisa terhubung ke server:\n${api.defaults.baseURL}\n\nPastikan:\n1. Backend berjalan\n2. Device dalam WiFi yang sama`;
-            }
-
-            Alert.alert("Gagal Peminjaman", errorMsg);
+        } catch (error) {
+            Alert.alert("Gagal", "Terjadi kesalahan saat membuat booking.");
         } finally {
             setIsBooking(false);
         }
     };
 
-    // RENDER ITEM UNTUK MAIN FLATLIST 
     const renderSection = ({ item }: { item: { type: string } }) => {
         if (item.type === 'cart-items') {
             return (
@@ -255,165 +124,96 @@ export default function CartScreen() {
                     hideFooter={true}
                 />
             );
-        } else if (item.type === 'booking-section') {
+        }
+
+        if (item.type === 'booking-section') {
             return (
                 <View style={styles.bookingSection}>
-                    <Text style={styles.sectionTitle}>Pilih Hari & Waktu</Text>
+                    <Text style={styles.sectionTitle}>Tentukan Jadwal</Text>
 
-                    {/* Pilihan Tanggal */}
-                    <View style={styles.dateRow}>
-                        {dateOptions.map((item) => (
-                            <TouchableOpacity
-                                key={item.id}
-                                style={[styles.dateCard, selectedDate.id === item.id && styles.dateCardActive]}
-                                onPress={() => setSelectedDate(item)}
-                            >
-                                <Text style={[styles.dateLabel, selectedDate.id === item.id && styles.textWhite]}>{item.label}</Text>
-                                <Text style={[styles.dateDay, selectedDate.id === item.id && styles.textWhite]}>{item.dayName}</Text>
-                                <Text style={[styles.dateValue, selectedDate.id === item.id && styles.textWhite]}>{item.dateNum} {item.monthName}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    {/* Time Picker Wheel */}
-                    <View style={styles.pickerContainer}>
-                        <Text style={styles.subLabel}>Jam Pengambilan ({selectedTime}):</Text>
-                        <View style={styles.wheelWrapper}>
-                            <View style={styles.activeHighlight} />
-
-                            {Platform.OS === 'ios' ? (
-                                // UNTUK iOS: PAKAI FLATLIST 
-                                <FlatList
-                                    ref={timeFlatListRef}
-                                    data={timeSlots}
-                                    keyExtractor={(_, i) => i.toString()}
-                                    showsVerticalScrollIndicator={false}
-                                    snapToInterval={ITEM_HEIGHT}
-                                    snapToAlignment="center"
-                                    decelerationRate="fast"
-                                    onMomentumScrollEnd={handleTimeScroll}
-                                    onScrollEndDrag={handleTimeScroll}
-                                    getItemLayout={(_, index) => ({
-                                        length: ITEM_HEIGHT,
-                                        offset: ITEM_HEIGHT * index,
-                                        index,
-                                    })}
-                                    renderItem={({ item }) => (
-                                        <View style={[styles.timeRow, { height: ITEM_HEIGHT }]}>
-                                            <Text style={[
-                                                styles.timeText,
-                                                item === selectedTime ? styles.timeActive : styles.timeInactive
-                                            ]}>
-                                                {item}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    style={{ height: ITEM_HEIGHT * 5 }}
-                                    nestedScrollEnabled={true}
-                                />
-                            ) : (
-                                // UNTUK ANDROID: PAKAI SCROLLVIEW
-                                <ScrollView
-                                    ref={timeScrollViewRef}
-                                    showsVerticalScrollIndicator={false}
-                                    style={{ height: ITEM_HEIGHT * 5 }}
-                                    contentContainerStyle={{
-                                        paddingVertical: ITEM_HEIGHT * 2,
-                                        alignItems: 'center'
-                                    }}
-                                    snapToInterval={ITEM_HEIGHT}
-                                    decelerationRate="fast"
-                                    onMomentumScrollEnd={handleTimeScroll}
-                                    onScrollEndDrag={handleTimeScroll}
-                                    nestedScrollEnabled={true}
-                                >
-                                    {timeSlots.map((item, index) => (
-                                        <View
-                                            key={index}
-                                            style={[styles.timeRow, { height: ITEM_HEIGHT }]}
-                                        >
-                                            <Text style={[
-                                                styles.timeText,
-                                                item === selectedTime ? styles.timeActive : styles.timeInactive
-                                            ]}>
-                                                {item}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </ScrollView>
-                            )}
+                    {/* Selector Tanggal */}
+                    <TouchableOpacity style={styles.selectorBtn} onPress={() => togglePicker('date')}>
+                        <View style={styles.selectorLeft}>
+                            <Ionicons name="calendar" size={22} color="#5B4DBC" />
+                            <Text style={styles.selectorLabel}>Tanggal Pengambilan</Text>
                         </View>
-                    </View>
+                        <Text style={styles.selectedVal}>{formatDisplayDate(date)}</Text>
+                    </TouchableOpacity>
 
-                    {/* Summary */}
-                    <View style={styles.footerSummary}>
-                        <View style={styles.summaryBox}>
-                            <Ionicons name="calendar" size={16} color="#5B4DBC" />
-                            <Text style={styles.summaryText}>{selectedDate.dayName}, {selectedDate.dateNum} {selectedDate.monthName}</Text>
+                    {/* Selector Jam */}
+                    <TouchableOpacity style={styles.selectorBtn} onPress={() => togglePicker('time')}>
+                        <View style={styles.selectorLeft}>
+                            <Ionicons name="time" size={22} color="#5B4DBC" />
+                            <Text style={styles.selectorLabel}>Jam Pengambilan</Text>
                         </View>
-                        <View style={styles.summaryBox}>
-                            <Ionicons name="time" size={16} color="#5B4DBC" />
-                            <Text style={styles.summaryText}>Jam {selectedTime}</Text>
+                        <Text style={styles.selectedVal}>{formatDisplayTime(date)} WIB</Text>
+                    </TouchableOpacity>
+
+                    {/* Picker Container (Dibuat kontras agar kelihatan) */}
+                    {showPicker && (
+                        <View style={styles.pickerWrapper}>
+                            <View style={styles.pickerHeader}>
+                                <Text style={styles.pickerHeaderText}>Pilih {pickerMode === 'date' ? 'Tanggal' : 'Jam'}</Text>
+                                {Platform.OS === 'ios' && (
+                                    <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                        <Text style={styles.doneText}>Selesai</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            <DateTimePicker
+                                value={date}
+                                mode={pickerMode}
+                                is24Hour={true}
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                onChange={onPickerChange}
+                                minuteInterval={5}
+                                minimumDate={new Date()}
+                                textColor="black" // Memaksa teks hitam agar kelihatan
+                                themeVariant="light" // Memaksa tema terang
+                            />
                         </View>
+                    )}
+
+                    <View style={styles.infoBox}>
+                        <Ionicons name="information-circle" size={18} color="#888" />
+                        <Text style={styles.infoText}>Peminjaman maksimal dikembalikan jam 16:30 WIB</Text>
                     </View>
 
                     <TouchableOpacity
-                        style={styles.proceedBtn}
+                        style={[styles.confirmBtn, isBooking && { opacity: 0.7 }]}
                         onPress={processCheckout}
                         disabled={isBooking}
                     >
-                        <Text style={styles.proceedBtnText}>{isBooking ? 'Memproses...' : 'Konfirmasi Booking'}</Text>
-                        <Ionicons name="checkmark-circle" size={22} color="white" />
-                    </TouchableOpacity>
-                </View>
-            );
-        } else if (item.type === 'empty-cart') {
-            return (
-                <View style={styles.emptyCart}>
-                    <Ionicons name="cart-outline" size={80} color="#CCC" />
-                    <Text style={styles.emptyText}>Keranjang Kosong a</Text>
-                    <TouchableOpacity
-                        style={styles.browseBtn}
-                        onPress={() => router.push('/(tabs)')}
-                    >
-                        <Text style={styles.browseBtnText}>Telusuri Alat</Text>
+                        <Text style={styles.confirmBtnText}>
+                            {isBooking ? 'Sedang Memproses...' : 'Konfirmasi Booking'}
+                        </Text>
+                        <Ionicons name="checkmark-circle" size={24} color="white" />
                     </TouchableOpacity>
                 </View>
             );
         }
-        return null;
-    };
 
-    // DATA UNTUK MAIN FLATLIST 
-    const sectionsData = useMemo(() => {
-        if (cartItems.length === 0) {
-            return [{ type: 'empty-cart' }];
-        }
-        return [
-            { type: 'cart-items' },
-            { type: 'booking-section' }
-        ];
-    }, [cartItems.length]);
+        return (
+            <View style={styles.emptyContainer}>
+                <Ionicons name="cart-outline" size={100} color="#DDD" />
+                <Text style={styles.emptyTitle}>Keranjang Kosong</Text>
+                <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)')}>
+                    <Text style={styles.browseBtnText}>Cari Peralatan</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
             <CartHeader totalItems={totalItems} onClearCart={clearCart} />
-
-            <View style={styles.bodyContainer}>
+            <View style={styles.body}>
                 <FlatList
-                    ref={mainFlatListRef}
-                    data={sectionsData}
+                    data={cartItems.length > 0 ? [{ type: 'cart-items' }, { type: 'booking-section' }] : [{ type: 'empty' }]}
                     renderItem={renderSection}
-                    keyExtractor={(_, index) => index.toString()}
+                    keyExtractor={(item) => item.type}
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 40 }}
-                    ListEmptyComponent={
-                        <View style={styles.emptyCart}>
-                            <Ionicons name="cart-outline" size={80} color="#CCC" />
-                            <Text style={styles.emptyText}>Keranjang Kosong a</Text>
-                        </View>
-                    }
                 />
             </View>
         </View>
@@ -421,189 +221,43 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#5B4DBC'
+    container: { flex: 1, backgroundColor: '#5B4DBC' },
+    body: { flex: 1, backgroundColor: '#F8F9FA', borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+    bookingSection: { padding: 20 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 15 },
+    selectorBtn: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        backgroundColor: 'white', padding: 16, borderRadius: 16, marginBottom: 12,
+        borderWidth: 1, borderColor: '#EEE', elevation: 2,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3
     },
-    bodyContainer: {
-        flex: 1,
-        backgroundColor: '#F5F5F7',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30
+    selectorLeft: { flexDirection: 'row', alignItems: 'center' },
+    selectorLabel: { marginLeft: 10, fontSize: 14, color: '#666', fontWeight: '500' },
+    selectedVal: { fontSize: 14, fontWeight: 'bold', color: '#5B4DBC' },
+
+    // Styling Picker agar teks terlihat (Penting!)
+    pickerWrapper: {
+        backgroundColor: '#FFFFFF', borderRadius: 20, marginBottom: 20,
+        padding: 10, borderWidth: 1, borderColor: '#DDD', overflow: 'hidden',
+        elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2, shadowRadius: 5
     },
-    bookingSection: {
-        padding: 20,
-        paddingHorizontal: 16 
+    pickerHeader: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingHorizontal: 15, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#EEE'
     },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 15,
-        textAlign: 'center' 
+    pickerHeaderText: { fontWeight: 'bold', color: '#333' },
+    doneText: { color: '#5B4DBC', fontWeight: 'bold' },
+
+    infoBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingHorizontal: 5 },
+    infoText: { fontSize: 12, color: '#888', marginLeft: 6 },
+    confirmBtn: {
+        backgroundColor: '#5B4DBC', padding: 18, borderRadius: 18,
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 5
     },
-    dateRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20,
-        gap: 10 
-    },
-    dateCard: {
-        backgroundColor: 'white',
-        flex: 1,
-        minWidth: 0, 
-        padding: 12, 
-        borderRadius: 20,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#EEE',
-        elevation: 2,
-        marginHorizontal: 4
-    },
-    dateCardActive: {
-        backgroundColor: '#5B4DBC',
-        borderColor: '#5B4DBC'
-    },
-    dateLabel: {
-        fontSize: 12,
-        color: '#999',
-        marginBottom: 4,
-        textAlign: 'center', 
-        flexWrap: 'wrap',
-        flexShrink: 1 
-    },
-    dateDay: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333',
-        textAlign: 'center',
-        flexWrap: 'wrap',
-        flexShrink: 1 
-    },
-    dateValue: {
-        fontSize: 14,
-        color: '#666',
-        textAlign: 'center', 
-        flexWrap: 'wrap', 
-        flexShrink: 1 
-    },
-    textWhite: {
-        color: 'white'
-    },
-    pickerContainer: {
-        marginTop: 10
-    },
-    subLabel: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 10,
-        fontWeight: '600',
-        textAlign: 'center' 
-    },
-    wheelWrapper: {
-        backgroundColor: '#1C1C1E',
-        borderRadius: 25,
-        height: ITEM_HEIGHT * 5,
-        overflow: 'hidden',
-        justifyContent: 'center',
-        marginHorizontal: 5 
-    },
-    activeHighlight: {
-        position: 'absolute',
-        top: ITEM_HEIGHT * 2,
-        left: 15,
-        right: 15,
-        height: ITEM_HEIGHT,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-        zIndex: 0
-    },
-    timeRow: {
-        justifyContent: 'center',
-        alignItems: 'center'
-    },
-    timeText: {
-        fontSize: 20,
-        fontWeight: '600'
-    },
-    timeActive: {
-        color: 'white',
-        fontSize: 26,
-        fontWeight: 'bold'
-    },
-    timeInactive: {
-        color: '#48484A',
-        fontSize: 18
-    },
-    footerSummary: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginVertical: 20,
-        gap: 10 // ⬅️ TAMBAH GAP
-    },
-    summaryBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        padding: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#EEE',
-        flex: 1, 
-        marginHorizontal: 5, 
-        justifyContent: 'center'
-    },
-    summaryText: {
-        fontSize: 12, 
-        fontWeight: '600',
-        color: '#5B4DBC',
-        textAlign: 'center',
-        flexShrink: 1
-    },
-    proceedBtn: {
-        backgroundColor: '#5B4DBC',
-        padding: 16,
-        borderRadius: 20,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 5,
-        marginTop: 10
-    },
-    proceedBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-        marginRight: 8
-    },
-    emptyCart: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60,
-        minHeight: 400,
-        paddingHorizontal: 20 
-    },
-    emptyText: {
-        fontSize: 18,
-        color: '#999',
-        marginTop: 10,
-        marginBottom: 20,
-        textAlign: 'center'
-    },
-    browseBtn: {
-        backgroundColor: '#5B4DBC',
-        paddingHorizontal: 30,
-        paddingVertical: 12,
-        borderRadius: 25,
-        minWidth: 150 
-    },
-    browseBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 16,
-        textAlign: 'center'
-    }
+    confirmBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold', marginRight: 10 },
+    emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
+    emptyTitle: { fontSize: 20, color: '#CCC', fontWeight: 'bold', marginTop: 10, marginBottom: 20 },
+    browseBtn: { backgroundColor: '#5B4DBC', paddingHorizontal: 40, paddingVertical: 14, borderRadius: 30 },
+    browseBtnText: { color: 'white', fontWeight: 'bold' }
 });
