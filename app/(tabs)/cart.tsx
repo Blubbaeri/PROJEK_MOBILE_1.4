@@ -46,18 +46,10 @@ export default function CartScreen() {
         if (Platform.OS === 'android') setShowPicker(false);
 
         if (selectedDate) {
-            if (pickerMode === 'time') {
-                const hours = selectedDate.getHours();
-                const minutes = selectedDate.getMinutes();
-                const totalMinutes = hours * 60 + minutes;
-                const minLimit = 7 * 60 + 30; // 07:30
-                const maxLimit = 16 * 60 + 30; // 16:30
-
-                if (totalMinutes < minLimit || totalMinutes > maxLimit) {
-                    Alert.alert("Waktu Tidak Sah", "Peminjaman hanya tersedia pukul 07:30 sampai 16:30");
-                    return;
-                }
-            }
+            // Validasi waktu dihapus agar bisa 24 jam
+            // if (pickerMode === 'time') {
+            //    ... (kode lama dihapus/komentar)
+            // }
             setDate(selectedDate);
         }
     };
@@ -82,7 +74,10 @@ export default function CartScreen() {
             const dateStr = date.toISOString().split('T')[0];
             const timeStr = formatDisplayTime(date);
             const scheduledTime = `${dateStr}T${timeStr}:00`;
-            const maxReturnTime = `${dateStr}T16:30:00`;
+            const nextDay = new Date(date);
+            nextDay.setDate(date.getDate() + 1);
+            const maxReturnStr = nextDay.toISOString().split('T')[0];
+            const maxReturnTime = `${maxReturnStr}T${timeStr}:00`;
 
             const payload = {
                 mhsId: 1, // Sesuaikan dengan logika ID user kamu
@@ -104,8 +99,17 @@ export default function CartScreen() {
                     params: { id: response.data.id.toString(), scheduledTime }
                 });
             }
-        } catch (error) {
-            Alert.alert("Gagal", "Terjadi kesalahan saat membuat booking.");
+        } catch (error: any) {
+            console.error("Checkout error:", error);
+            console.error("Error response:", error.response?.data);
+
+            // Tampilkan error message dari backend jika ada
+            const errorMessage = error.response?.data?.message
+                || error.response?.data?.error
+                || error.message
+                || "Terjadi kesalahan saat membuat booking";
+
+            Alert.alert("Gagal", errorMessage);
         } finally {
             setIsBooking(false);
         }
@@ -176,7 +180,7 @@ export default function CartScreen() {
 
                     <View style={styles.infoBox}>
                         <Ionicons name="information-circle" size={18} color="#888" />
-                        <Text style={styles.infoText}>Peminjaman maksimal dikembalikan jam 16:30 WIB</Text>
+                        <Text style={styles.infoText}>Peminjaman berlaku selama 24 jam dari waktu pengambilan</Text>
                     </View>
 
                     <TouchableOpacity
