@@ -1,4 +1,4 @@
-// file: app/(tabs)/_layout.tsx 
+// app/(tabs)/_layout.tsx 
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -8,7 +8,6 @@ import { CartProvider, useCart } from '../../context/CartContext';
 import { PaperProvider } from 'react-native-paper';
 import Toast, { BaseToast, ErrorToast } from 'react-native-toast-message';
 
-// Konfigurasi Toast (KODE LAMA LU)
 const toastConfig = {
     success: (props: any) => (
         <BaseToast
@@ -57,7 +56,6 @@ function AppTabsLayout() {
                     }
                 }}
             >
-                {/* 1. EQUIPMENT - KODE LAMA LU */}
                 <Tabs.Screen
                     name="index"
                     options={{
@@ -66,7 +64,6 @@ function AppTabsLayout() {
                     }}
                 />
 
-                {/* 2. TRANSACTION - KODE LAMA LU */}
                 <Tabs.Screen
                     name="transaction"
                     options={{
@@ -75,7 +72,6 @@ function AppTabsLayout() {
                     }}
                 />
 
-                {/* 3. CART - KODE LAMA LU */}
                 <Tabs.Screen
                     name="cart"
                     options={{
@@ -95,7 +91,7 @@ function AppTabsLayout() {
                     }}
                 />
 
-                {/* HALAMAN YANG DISEMBUNYIKAN (HIDDEN ROUTES) - KODE LAMA LU */}
+                {/* --- HALAMAN YANG DISEMBUNYIKAN (HREF: NULL) --- */}
 
                 <Tabs.Screen
                     name="booking-qr"
@@ -121,8 +117,6 @@ function AppTabsLayout() {
                     }}
                 />
 
-                {/* TAMBAHAN BARU: TETAP SEMBUNYI (HREF: NULL) */}
-
                 <Tabs.Screen
                     name="return-item"
                     options={{
@@ -133,6 +127,15 @@ function AppTabsLayout() {
 
                 <Tabs.Screen
                     name="return-qr"
+                    options={{
+                        href: null,
+                        tabBarStyle: { display: 'none' },
+                    }}
+                />
+
+                {/* TAMBAHKAN INI: Supaya 'pages-qr' hilang dari menu bawah */}
+                <Tabs.Screen
+                    name="pages-qr"
                     options={{
                         href: null,
                         tabBarStyle: { display: 'none' },

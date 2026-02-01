@@ -1,5 +1,3 @@
-//app/(tabs)/transaction-detail.tsx
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View,
@@ -9,14 +7,15 @@ import {
     TouchableOpacity,
     StatusBar,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import TransactionDetailSkeleton from '../../components/skeletons/TransactionDetailSkeleton';
 import { TransactionStatus } from '../../components/TransactionCard';
 import { api } from '../../lib/api';
 
+/* --- TYPES --- */
 interface TransactionItem {
     equipmentName: string;
     quantity: number;
@@ -30,9 +29,12 @@ interface Transaction {
     qrCode?: string;
     status: TransactionStatus;
     items: TransactionItem[];
+    mhsId?: number;
+    userName?: string;
     [key: string]: any;
 }
 
+/* --- CONFIGURATION --- */
 const statusConfig: Record<TransactionStatus, { icon: string; color: string; label: string; description: string }> = {
     Booked: { icon: 'calendar-check', color: '#FF9800', label: 'Booked', description: 'Peminjaman telah dibooking' },
     Diproses: { icon: 'clock', color: '#FFA000', label: 'Diproses', description: 'Peminjaman sedang diproses' },
@@ -44,12 +46,7 @@ const statusConfig: Record<TransactionStatus, { icon: string; color: string; lab
 
 const getStatusConfig = (status: string) => {
     if (!status) {
-        return {
-            icon: 'question-circle',
-            color: '#999',
-            label: 'Unknown',
-            description: 'Status tidak tersedia'
-        };
+        return { icon: 'question-circle', color: '#999', label: 'Unknown', description: 'Status tidak tersedia' };
     }
 
     const statusLower = status.toLowerCase().trim();
@@ -67,14 +64,10 @@ const getStatusConfig = (status: string) => {
         return statusConfig[normalizedStatus];
     }
 
-    return {
-        icon: 'question-circle',
-        color: '#999',
-        label: status || 'Unknown',
-        description: `Status: ${status}`
-    };
+    return { icon: 'question-circle', color: '#999', label: status || 'Unknown', description: `Status: ${status}` };
 };
 
+/* --- SCREEN --- */
 export default function TransactionDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -138,83 +131,87 @@ export default function TransactionDetailScreen() {
         }, 5000);
     }, [stopPolling]);
 
-    useEffect(() => {
+    const fetchData = useCallback(async () => {
         if (!transactionId) return;
-        const fetchData = async () => {
-            try {
-                const response = await api.get(`/api/Borrowing/DetailPeminjaman/${transactionId}`);
-                const borrowingData = response.data;
-                if (!borrowingData) {
-                    setLoading(false);
-                    return;
-                }
+        try {
+            setLoading(true);
+            const response = await api.get(`/api/Borrowing/DetailPeminjaman/${transactionId}`);
+            const borrowingData = response.data;
 
-                const apiItems = borrowingData.items || [];
-                const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
-                    equipmentName: item.equipmentName || 'Alat',
-                    quantity: item.quantity || 1,
-                    status: item.status,
-                    categoryName: item.categoryName,
-                    locationName: item.locationName
-                }));
-
-                const transactionData: Transaction = {
-                    id: transactionId,
-                    status: borrowingData.status as TransactionStatus,
-                    qrCode: borrowingData.qrCode || '',
-                    items: groupedItems,
-                    mhsId: borrowingData.mhsId,
-                    userName: borrowingData.userName || '',
-                };
-
-                setTransaction(transactionData);
-                if (transactionData.status === 'Booked') startPolling(transactionData.id);
-            } catch (err: any) {
-                Alert.alert('Error', 'Gagal mengambil data transaksi');
-            } finally {
+            if (!borrowingData) {
                 setLoading(false);
+                return;
             }
-        };
+
+            const apiItems = borrowingData.items || [];
+            const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
+                equipmentName: item.equipmentName || 'Alat',
+                quantity: item.quantity || 1,
+                status: item.status,
+                categoryName: item.categoryName,
+                locationName: item.locationName
+            }));
+
+            const transactionData: Transaction = {
+                id: transactionId,
+                status: borrowingData.status as TransactionStatus,
+                qrCode: borrowingData.qrCode || '',
+                items: groupedItems,
+                mhsId: borrowingData.mhsId,
+                userName: borrowingData.userName || '',
+            };
+
+            setTransaction(transactionData);
+
+            if (transactionData.status === 'Booked') {
+                startPolling(transactionData.id);
+            }
+        } catch (err: any) {
+            console.error(err);
+            Alert.alert('Error', 'Gagal mengambil data transaksi');
+        } finally {
+            setLoading(false);
+        }
+    }, [transactionId, startPolling]);
+
+    useEffect(() => {
         fetchData();
         return () => stopPolling();
-    }, [transactionId, startPolling, stopPolling]);
+    }, [fetchData, stopPolling]);
 
     const handleBack = () => {
         stopPolling();
         router.back();
     };
 
-    const refreshStatus = async () => {
-        if (!transaction) return;
-        try {
-            const res = await api.get(`/api/Borrowing/DetailPeminjaman/${transaction.id}`);
-            const data = res.data;
-            if (data) {
-                const apiItems = data.items || [];
-                const groupedItems: TransactionItem[] = apiItems.map((item: any) => ({
-                    equipmentName: item.equipmentName || 'Alat',
-                    quantity: item.quantity || 1,
-                    status: item.status,
-                }));
+    const handleRefresh = () => fetchData();
 
-                setTransaction(prev => prev ? {
-                    ...prev,
-                    status: data.status,
-                    items: groupedItems,
-                } : prev);
+    /* --- NAVIGATION HANDLERS --- */
 
-                Alert.alert('Status Diperbarui', `Status: ${data.status}`);
-            }
-        } catch (error: any) {
-            Alert.alert('Error', 'Gagal refresh status');
-        }
+    const handleGoToQr = () => {
+        router.push({
+            pathname: '/(tabs)/pages-qr' as any,
+            params: { id: transactionId }
+        });
+    };
+
+    const handleReturnPress = () => {
+        router.push({
+            pathname: '/(tabs)/return-item' as any,
+            params: { borrowingId: transactionId }
+        });
+    };
+
+    const goToTransactionList = () => {
+        stopPolling();
+        router.push('/(tabs)/transaction');
     };
 
     if (loading) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#5B4DBC" />
-                <Text style={{ marginTop: 10 }}>Memuat data...</Text>
+                <Text style={{ marginTop: 10 }}>Memuat data detail...</Text>
             </View>
         );
     }
@@ -231,73 +228,94 @@ export default function TransactionDetailScreen() {
         );
     }
 
-    const currentStatus = getStatusConfig(transaction.status);
+    const currentStatusConfig = getStatusConfig(transaction.status);
     const statusLower = transaction.status.toLowerCase();
-    const canShowQr = ['booked', 'diproses', 'dipinjam', 'dikembalikan'].includes(statusLower);
-    const isActive = statusLower === 'dipinjam';
+
+    // LOGIKA TOMBOL (UPDATE: 'dipinjam' dihapus dari canShowQr)
+    const canShowQr = ['booked', 'diproses', 'dikembalikan'].includes(statusLower);
+    const isDipinjam = statusLower === 'dipinjam';
+
     const items = transaction.items || [];
-
-    const handleGoToQr = () => router.push({ pathname: '/booking-qr', params: { id: transactionId } });
-
-    // LOGIC TOMBOL BARU: Mengarah ke return-item dengan mengirimkan ID Transaksi
-    const handleReturnPress = () => {
-        router.push({
-            pathname: '/(tabs)/return-item' as any,
-            params: { id: transactionId } // Kirim ID transaksi ke halaman pilih barang
-        });
-    };
-
-    const goToTransaction = () => router.push('/(tabs)/transaction');
 
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
             <View style={styles.header}>
-                <TouchableOpacity onPress={goToTransaction}>
+                <TouchableOpacity onPress={goToTransactionList} style={styles.backBtn}>
                     <Ionicons name="arrow-back" size={24} color="white" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Detail Transaksi</Text>
-                <TouchableOpacity onPress={refreshStatus}>
+                <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn}>
                     <Ionicons name="refresh" size={24} color="white" />
                 </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20 }}>
                 <View style={styles.card}>
-                    <Text style={styles.label}>Transaction ID</Text>
-                    <Text style={styles.value}>TXN-{transactionId}</Text>
+                    <View style={styles.cardHeader}>
+                        <View>
+                            <Text style={styles.label}>Transaction ID</Text>
+                            <Text style={styles.value}>TXN-{transactionId}</Text>
+                        </View>
+                        <FontAwesome5 name="receipt" size={24} color="#E0E0E0" />
+                    </View>
+
                     <View style={styles.divider} />
 
-                    <Text style={styles.label}>Status</Text>
+                    <Text style={styles.label}>Status Peminjaman</Text>
                     <View style={styles.statusRow}>
-                        <FontAwesome5 name={currentStatus.icon} size={16} color={currentStatus.color} />
-                        <Text style={[styles.statusText, { color: currentStatus.color }]}>{currentStatus.label}</Text>
+                        <FontAwesome5 name={currentStatusConfig.icon} size={18} color={currentStatusConfig.color} />
+                        <Text style={[styles.statusText, { color: currentStatusConfig.color }]}>
+                            {currentStatusConfig.label}
+                        </Text>
                     </View>
-                    <Text style={styles.statusDescription}>{currentStatus.description}</Text>
+                    <Text style={styles.statusDescription}>{currentStatusConfig.description}</Text>
                 </View>
 
                 <Text style={styles.sectionTitle}>Daftar Barang</Text>
                 {items.length > 0 ? items.map((item, idx) => (
                     <View key={idx} style={styles.itemCard}>
-                        <FontAwesome5 name="box" size={20} color="#5B4DBC" style={{ marginRight: 15 }} />
-                        <View>
+                        <View style={styles.itemIconBox}>
+                            <FontAwesome5 name="box" size={18} color="#5B4DBC" />
+                        </View>
+                        <View style={{ flex: 1 }}>
                             <Text style={styles.itemName}>{item.equipmentName}</Text>
-                            <Text style={styles.itemQty}>Jumlah: {item.quantity}</Text>
+                            <View style={styles.itemBadgeRow}>
+                                <View style={styles.qtyBadge}>
+                                    <Text style={styles.qtyText}>Jumlah: {item.quantity}</Text>
+                                </View>
+                                {item.status && (
+                                    <Text style={styles.itemStatusLine}> • {item.status}</Text>
+                                )}
+                            </View>
                         </View>
                     </View>
-                )) : <Text style={{ color: '#999' }}>Tidak ada detail barang.</Text>}
+                )) : (
+                    <View style={styles.emptyBox}>
+                        <Text style={{ color: '#999' }}>Tidak ada detail barang.</Text>
+                    </View>
+                )}
             </ScrollView>
 
+            {/* FOOTER BUTTONS */}
             <View style={styles.footer}>
+                {/* QR Hanya muncul jika status BUKAN 'dipinjam' */}
                 {canShowQr && (
-                    <TouchableOpacity style={[styles.btnOutline, { marginBottom: 10 }]} onPress={handleGoToQr}>
-                        <Text style={{ color: '#5B4DBC', fontWeight: 'bold' }}>Tampilkan QR Booking</Text>
+                    <TouchableOpacity
+                        style={[styles.btnOutline, isDipinjam && { marginBottom: 12 }]}
+                        onPress={handleGoToQr}
+                    >
+                        <Ionicons name="qr-code-outline" size={20} color="#5B4DBC" style={{ marginRight: 8 }} />
+                        <Text style={styles.btnOutlineText}>Tampilkan QR E-Ticket</Text>
                     </TouchableOpacity>
                 )}
-                {isActive && (
+
+                {/* Tombol Lanjut Pengembalian muncul khusus status 'Dipinjam' */}
+                {isDipinjam && (
                     <TouchableOpacity style={styles.btnPrimary} onPress={handleReturnPress}>
-                        <Text style={{ color: 'white', fontWeight: 'bold' }}>Lanjut Pengembalian</Text>
+                        <FontAwesome5 name="undo-alt" size={18} color="white" style={{ marginRight: 10 }} />
+                        <Text style={styles.btnPrimaryText}>Lanjut Pengembalian</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -309,22 +327,60 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F5F5F7' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
-        paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20,
-        backgroundColor: '#5B4DBC', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
+        paddingTop: Platform.OS === 'android' ? 50 : 60,
+        paddingBottom: 20,
+        paddingHorizontal: 20,
+        backgroundColor: '#5B4DBC',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20
     },
     headerTitle: { fontSize: 18, fontWeight: 'bold', color: 'white' },
-    card: { backgroundColor: 'white', padding: 20, borderRadius: 12, marginBottom: 20 },
-    label: { color: '#888', fontSize: 12 },
-    value: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-    divider: { height: 1, backgroundColor: '#eee', marginVertical: 10 },
-    statusRow: { flexDirection: 'row', alignItems: 'center' },
-    statusText: { fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-    statusDescription: { fontSize: 13, color: '#666', marginTop: 5, fontStyle: 'italic' },
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 10, color: '#333' },
-    itemCard: { backgroundColor: 'white', flexDirection: 'row', padding: 15, borderRadius: 12, marginBottom: 10, alignItems: 'center' },
-    itemName: { fontSize: 14, fontWeight: 'bold' },
-    itemQty: { fontSize: 12, color: '#666' },
-    footer: { padding: 20, backgroundColor: 'white', borderTopWidth: 1, borderColor: '#eee' },
-    btnOutline: { paddingVertical: 15, borderRadius: 8, borderWidth: 1, borderColor: '#5B4DBC', alignItems: 'center' },
-    btnPrimary: { paddingVertical: 15, borderRadius: 10, backgroundColor: '#5B4DBC', width: '100%', alignItems: 'center' }
+    backBtn: { padding: 5 },
+    refreshBtn: { padding: 5 },
+    card: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 25, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    label: { color: '#888', fontSize: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+    value: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+    divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 15 },
+    statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+    statusText: { fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
+    statusDescription: { fontSize: 13, color: '#666', marginTop: 6, fontStyle: 'italic' },
+    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15, color: '#333', marginLeft: 5 },
+    itemCard: { backgroundColor: 'white', flexDirection: 'row', padding: 16, borderRadius: 12, marginBottom: 12, alignItems: 'center', elevation: 1 },
+    itemIconBox: { width: 40, height: 40, backgroundColor: '#F0EFFF', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+    itemName: { fontSize: 15, fontWeight: 'bold', color: '#333' },
+    itemBadgeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    qtyBadge: { backgroundColor: '#F5F5F5', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+    qtyText: { fontSize: 11, color: '#5B4DBC', fontWeight: '700' },
+    itemStatusLine: { fontSize: 12, color: '#888' },
+    emptyBox: { padding: 20, alignItems: 'center' },
+    footer: { padding: 20, backgroundColor: 'white', borderTopWidth: 1, borderColor: '#EEE', paddingBottom: Platform.OS === 'ios' ? 30 : 20 },
+    btnOutline: {
+        flexDirection: 'row',
+        paddingVertical: 15,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: '#5B4DBC',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(91, 77, 188, 0.05)'
+    },
+    btnOutlineText: { color: '#5B4DBC', fontWeight: 'bold', fontSize: 15 },
+    btnPrimary: {
+        flexDirection: 'row',
+        paddingVertical: 16,
+        borderRadius: 12,
+        backgroundColor: '#5B4DBC',
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        elevation: 4,
+        shadowColor: '#5B4DBC',
+        shadowOpacity: 0.3,
+        shadowRadius: 5
+    },
+    btnPrimaryText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
 });

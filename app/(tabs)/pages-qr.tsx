@@ -1,5 +1,3 @@
-// app/(tabs)/booking-qr.tsx
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View,
@@ -50,11 +48,11 @@ interface BorrowingData {
     alatHabisList?: string[];
 }
 
-/*  SCREEN */
-export default function BookingQr() {
+export default function PagesQr() {
     const router = useRouter();
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, type } = useLocalSearchParams<{ id: string, type?: string }>();
     const borrowingId = Number(id);
+    const isReturn = type === 'return';
 
     const [borrowingData, setBorrowingData] = useState<BorrowingData | null>(null);
     const [isPolling, setIsPolling] = useState(false);
@@ -82,7 +80,6 @@ export default function BookingQr() {
 
         pollingRef.current = setInterval(async () => {
             try {
-                // Ganti ke /api/Borrowing (Huruf B Besar sesuai Controller lo)
                 const headerRes = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowId}`);
                 const newData = headerRes.data;
 
@@ -91,38 +88,22 @@ export default function BookingQr() {
                 if (borrowingDataRef.current?.status !== newData.status) {
                     setBorrowingData(prev => {
                         if (!prev) return null;
-                        return {
-                            ...prev,
-                            ...newData,
-                            items: prev.items || [],
-                            semuaAlatHabis: newData.semuaAlatHabis || false,
-                            alatHabisList: newData.alatHabisList || []
-                        };
+                        return { ...prev, ...newData };
                     });
 
                     const currentStatus = newData.status.toLowerCase();
+                    const endStatuses = ['selesai', 'dibatalkan', 'ditolak'];
 
-                    if (currentStatus === 'selesai' && newData.semuaAlatHabis) {
-                        Alert.alert('Alat Habis', `Maaf, semua alat yang anda booking sudah habis.`, [
-                            { text: 'OK', onPress: () => { stopPolling(); setShowCompletionAlert(false); } }
-                        ]);
-                        stopPolling();
-                        return;
-                    }
-
-                    const continuePollingStatuses = ['booked', 'diproses', 'dipinjam', 'dikembalikan'];
-                    if (!continuePollingStatuses.includes(currentStatus)) {
-                        if (currentStatus === 'selesai') {
-                            setShowCompletionAlert(true);
-                            setTimeout(() => setShowCompletionAlert(false), 5000);
-                        }
+                    if (endStatuses.includes(currentStatus)) {
+                        setShowCompletionAlert(true);
+                        setTimeout(() => setShowCompletionAlert(false), 5000);
                         stopPolling();
                     }
                 }
             } catch (error) {
                 console.log('Polling error:', error);
             }
-        }, 3000); // Polling 3 detik sekali saja biar server gak berat
+        }, 3000);
     }, [stopPolling]);
 
     const onRefresh = useCallback(async () => {
@@ -132,64 +113,36 @@ export default function BookingQr() {
             const data = response.data;
 
             if (data) {
-                setBorrowingData({
-                    ...data,
-                    semuaAlatHabis: data.semuaAlatHabis || false,
-                    alatHabisList: data.alatHabisList || []
-                });
-                if (data.status.toLowerCase() === 'booked') startPolling(data.id);
+                setBorrowingData(data);
+                const status = data.status.toLowerCase();
+                // Polling jika status masih dalam proses
+                if (status === 'booked' || (isReturn && status === 'dipinjam')) {
+                    startPolling(data.id);
+                }
             }
         } catch (error) {
-            Alert.alert('Error', 'Gagal refresh data');
+            Alert.alert('Error', 'Gagal menyambung ke server IP: 192.168.100.230');
         } finally {
             setRefreshing(false);
         }
-    }, [borrowingId, stopPolling, startPolling]);
+    }, [borrowingId, isReturn, startPolling]);
 
     useEffect(() => {
         if (!borrowingId) return;
-
-        const fetchData = async () => {
-            try {
-                const response = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowingId}`);
-                const data = response.data; 
-
-                if (!data) {
-                    Alert.alert('Error', 'Data booking tidak ditemukan');
-                    return;
-                }
-
-                setBorrowingData({
-                    ...data,
-                    semuaAlatHabis: data.semuaAlatHabis || false,
-                    alatHabisList: data.alatHabisList || []
-                });
-
-                if (data.status.toLowerCase() === 'booked') {
-                    startPolling(data.id);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                Alert.alert('Error', 'Gagal mengambil data booking');
-            }
-        };
-
-        fetchData();
+        onRefresh();
         return () => stopPolling();
-    }, [borrowingId, startPolling, stopPolling]);
+    }, [borrowingId]);
 
     const handleBack = () => {
         stopPolling();
-        router.replace('/(tabs)/transaction'); // Arahkan ke list transaksi
+        router.replace('/(tabs)/transaction');
     };
-
-    const refreshStatus = () => onRefresh();
 
     if (!borrowingData) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#5B4DBC" />
-                <Text style={styles.loadingText}>Memuat data booking...</Text>
+                <Text style={styles.loadingText}>Menghubungkan ke server...</Text>
             </View>
         );
     }
@@ -204,25 +157,14 @@ export default function BookingQr() {
                         <TouchableOpacity onPress={handleBack} style={styles.iconBtn}>
                             <Ionicons name="close" size={22} color="white" />
                         </TouchableOpacity>
-                        <Text style={styles.headerTitle}>E-Ticket</Text>
-                        <TouchableOpacity onPress={refreshStatus} style={styles.iconBtn}>
+                        {/* JUDUL HEADER DINAMIS */}
+                        <Text style={styles.headerTitle}>{isReturn ? 'E-Ticket Kembali' : 'E-Ticket Pinjam'}</Text>
+                        <TouchableOpacity onPress={onRefresh} style={styles.iconBtn}>
                             <Ionicons name="refresh" size={20} color="white" />
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>
             </View>
-
-            {showCompletionAlert && (
-                <View style={styles.completionAlert}>
-                    <View style={styles.completionAlertContent}>
-                        <Ionicons name="checkmark-circle" size={30} color="#4CAF50" />
-                        <View style={styles.completionAlertText}>
-                            <Text style={styles.completionAlertTitle}>Selesai!</Text>
-                            <Text style={styles.completionAlertDesc}>Transaksi telah diperbarui.</Text>
-                        </View>
-                    </View>
-                </View>
-            )}
 
             <ScrollView
                 contentContainerStyle={styles.content}
@@ -233,7 +175,9 @@ export default function BookingQr() {
                 {isPolling && (
                     <View style={styles.pollingBox}>
                         <Ionicons name="sync" size={14} color="#5B4DBC" />
-                        <Text style={styles.pollingText}>Memantau status...</Text>
+                        <Text style={styles.pollingText}>
+                            {isReturn ? 'Tunjukkan QR ke petugas untuk scan pengembalian' : 'Menunggu verifikasi petugas...'}
+                        </Text>
                     </View>
                 )}
 
@@ -256,12 +200,7 @@ const styles = StyleSheet.create({
     iconBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
     content: { padding: 20, paddingBottom: 40 },
     pollingBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8EAF6', padding: 10, borderRadius: 10, marginVertical: 15 },
-    pollingText: { marginLeft: 6, fontSize: 12, color: '#5B4DBC', fontWeight: '500' },
-    completionAlert: { position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'white', borderRadius: 15, padding: 15, elevation: 5, zIndex: 1000 },
-    completionAlertContent: { flexDirection: 'row', alignItems: 'center' },
-    completionAlertText: { flex: 1, marginLeft: 12 },
-    completionAlertTitle: { fontSize: 16, fontWeight: 'bold', color: '#2E7D32' },
-    completionAlertDesc: { fontSize: 14, color: '#666' },
+    pollingText: { marginLeft: 6, fontSize: 12, color: '#5B4DBC', fontWeight: '500', textAlign: 'center', flex: 1 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: 20, fontSize: 16, color: '#666' }
 });
