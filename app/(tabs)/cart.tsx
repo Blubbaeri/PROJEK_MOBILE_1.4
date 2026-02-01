@@ -12,7 +12,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    ActivityIndicator
 } from 'react-native';
 import CartHeader from '../../components/CartHeader';
 import CartList from '../../components/CartList';
@@ -40,16 +41,9 @@ export default function CartScreen() {
         return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace('.', ':');
     };
 
-    // Handler saat user memilih di picker
     const onPickerChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-        // Di Android, picker langsung tertutup setelah memilih
         if (Platform.OS === 'android') setShowPicker(false);
-
         if (selectedDate) {
-            // Validasi waktu dihapus agar bisa 24 jam
-            // if (pickerMode === 'time') {
-            //    ... (kode lama dihapus/komentar)
-            // }
             setDate(selectedDate);
         }
     };
@@ -61,7 +55,11 @@ export default function CartScreen() {
 
     // PROSES CHECKOUT
     const processCheckout = async () => {
-        if (cartItems.length === 0) return;
+        if (cartItems.length === 0) {
+            Alert.alert("Keranjang Kosong", "Silakan pilih alat terlebih dahulu.");
+            return;
+        }
+
         setIsBooking(true);
         try {
             const token = await AsyncStorage.getItem('user-token');
@@ -71,16 +69,18 @@ export default function CartScreen() {
                 return;
             }
 
+            // Susun data waktu untuk backend
             const dateStr = date.toISOString().split('T')[0];
             const timeStr = formatDisplayTime(date);
             const scheduledTime = `${dateStr}T${timeStr}:00`;
+
             const nextDay = new Date(date);
             nextDay.setDate(date.getDate() + 1);
             const maxReturnStr = nextDay.toISOString().split('T')[0];
             const maxReturnTime = `${maxReturnStr}T${timeStr}:00`;
 
             const payload = {
-                mhsId: 1, // Sesuaikan dengan logika ID user kamu
+                mhsId: 1, // Sesuaikan dengan sistem ID user kamu
                 items: cartItems.map(item => ({ perId: item.perId, quantity: item.quantity || 1 })),
                 scheduledTime,
                 maxReturnTime,
@@ -93,21 +93,24 @@ export default function CartScreen() {
             });
 
             if (response.data.id) {
+                // 1. Kosongkan keranjang belanja
                 clearCart();
+
+                // 2. Pindah ke halaman QR
+                // CATATAN: Folder (tabs) tidak perlu ditulis di pathname
                 router.push({
-                    pathname: '/(tabs)/booking-qr',
-                    params: { id: response.data.id.toString(), scheduledTime }
+                    pathname: '/pages-qr',
+                    params: {
+                        id: response.data.id.toString(),
+                        type: 'borrow'
+                    }
                 });
             }
         } catch (error: any) {
             console.error("Checkout error:", error);
-            console.error("Error response:", error.response?.data);
-
-            // Tampilkan error message dari backend jika ada
             const errorMessage = error.response?.data?.message
                 || error.response?.data?.error
-                || error.message
-                || "Terjadi kesalahan saat membuat booking";
+                || "Gagal membuat peminjaman. Cek koneksi server.";
 
             Alert.alert("Gagal", errorMessage);
         } finally {
@@ -124,7 +127,7 @@ export default function CartScreen() {
                     onRemove={removeFromCart}
                     onIncrease={increaseQuantity}
                     onDecrease={decreaseQuantity}
-                    onBrowse={() => router.push('/(tabs)')}
+                    onBrowse={() => router.push('/')}
                     hideFooter={true}
                 />
             );
@@ -135,7 +138,6 @@ export default function CartScreen() {
                 <View style={styles.bookingSection}>
                     <Text style={styles.sectionTitle}>Tentukan Jadwal</Text>
 
-                    {/* Selector Tanggal */}
                     <TouchableOpacity style={styles.selectorBtn} onPress={() => togglePicker('date')}>
                         <View style={styles.selectorLeft}>
                             <Ionicons name="calendar" size={22} color="#5B4DBC" />
@@ -144,7 +146,6 @@ export default function CartScreen() {
                         <Text style={styles.selectedVal}>{formatDisplayDate(date)}</Text>
                     </TouchableOpacity>
 
-                    {/* Selector Jam */}
                     <TouchableOpacity style={styles.selectorBtn} onPress={() => togglePicker('time')}>
                         <View style={styles.selectorLeft}>
                             <Ionicons name="time" size={22} color="#5B4DBC" />
@@ -153,7 +154,6 @@ export default function CartScreen() {
                         <Text style={styles.selectedVal}>{formatDisplayTime(date)} WIB</Text>
                     </TouchableOpacity>
 
-                    {/* Picker Container (Dibuat kontras agar kelihatan) */}
                     {showPicker && (
                         <View style={styles.pickerWrapper}>
                             <View style={styles.pickerHeader}>
@@ -172,8 +172,8 @@ export default function CartScreen() {
                                 onChange={onPickerChange}
                                 minuteInterval={5}
                                 minimumDate={new Date()}
-                                textColor="black" // Memaksa teks hitam agar kelihatan
-                                themeVariant="light" // Memaksa tema terang
+                                textColor="black"
+                                themeVariant="light"
                             />
                         </View>
                     )}
@@ -188,10 +188,14 @@ export default function CartScreen() {
                         onPress={processCheckout}
                         disabled={isBooking}
                     >
-                        <Text style={styles.confirmBtnText}>
-                            {isBooking ? 'Sedang Memproses...' : 'Konfirmasi Booking'}
-                        </Text>
-                        <Ionicons name="checkmark-circle" size={24} color="white" />
+                        {isBooking ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <>
+                                <Text style={styles.confirmBtnText}>Konfirmasi Booking</Text>
+                                <Ionicons name="checkmark-circle" size={24} color="white" />
+                            </>
+                        )}
                     </TouchableOpacity>
                 </View>
             );
@@ -201,7 +205,7 @@ export default function CartScreen() {
             <View style={styles.emptyContainer}>
                 <Ionicons name="cart-outline" size={100} color="#DDD" />
                 <Text style={styles.emptyTitle}>Keranjang Kosong</Text>
-                <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)')}>
+                <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/')}>
                     <Text style={styles.browseBtnText}>Cari Peralatan</Text>
                 </TouchableOpacity>
             </View>
@@ -238,8 +242,6 @@ const styles = StyleSheet.create({
     selectorLeft: { flexDirection: 'row', alignItems: 'center' },
     selectorLabel: { marginLeft: 10, fontSize: 14, color: '#666', fontWeight: '500' },
     selectedVal: { fontSize: 14, fontWeight: 'bold', color: '#5B4DBC' },
-
-    // Styling Picker agar teks terlihat (Penting!)
     pickerWrapper: {
         backgroundColor: '#FFFFFF', borderRadius: 20, marginBottom: 20,
         padding: 10, borderWidth: 1, borderColor: '#DDD', overflow: 'hidden',
@@ -252,7 +254,6 @@ const styles = StyleSheet.create({
     },
     pickerHeaderText: { fontWeight: 'bold', color: '#333' },
     doneText: { color: '#5B4DBC', fontWeight: 'bold' },
-
     infoBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingHorizontal: 5 },
     infoText: { fontSize: 12, color: '#888', marginLeft: 6 },
     confirmBtn: {
