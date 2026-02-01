@@ -17,23 +17,20 @@ import { api } from '../../lib/api';
 
 /* --- DATA TYPE INTERFACE --- */
 interface AlatItem {
-    id: string;        // ID Detail Barang (Primary Key di tabel Detail)
-    nama: string;      // Nama Alat
-    jumlahPinjam: number; // Total yang sedang dibawa user
-    jumlahKembali: number; // Input user (berapa yang mau dipulangkan)
+    id: string;
+    nama: string;
+    jumlahPinjam: number;
+    jumlahKembali: number;
 }
 
 export default function ReturnItemScreen() {
     const router = useRouter();
-
-    // Menangkap borrowingId dari halaman transaction-detail
     const { borrowingId } = useLocalSearchParams<{ borrowingId: string }>();
 
     const [daftarAlat, setDaftarAlat] = useState<AlatItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
-    /* --- 1. FUNGSI AMBIL DATA (GET) --- */
     const fetchBorrowedItems = useCallback(async () => {
         if (!borrowingId) {
             Alert.alert("Error", "ID Transaksi tidak ditemukan.");
@@ -43,14 +40,10 @@ export default function ReturnItemScreen() {
 
         try {
             setLoading(true);
-            // Panggil API Backend .NET kamu
             const response = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowingId}`);
-
-            console.log("DEBUG RESPONSE BACKEND:", response.data);
 
             if (response.data && response.data.items) {
                 const mappedData = response.data.items.map((item: any, index: number) => {
-                    // SINKRONISASI: Cek nama properti dari DTO (PascalCase atau camelCase)
                     const detailId = item.id || item.Id || item.borrowingDetailId || index;
                     const equipmentName = item.equipmentName || item.EquipmentName || "Alat";
                     const quantity = item.quantity || item.Quantity || 0;
@@ -59,7 +52,7 @@ export default function ReturnItemScreen() {
                         id: detailId.toString(),
                         nama: equipmentName,
                         jumlahPinjam: quantity,
-                        jumlahKembali: 0, // Default awal user belum milih jumlah
+                        jumlahKembali: 0,
                     };
                 });
                 setDaftarAlat(mappedData);
@@ -76,7 +69,6 @@ export default function ReturnItemScreen() {
         fetchBorrowedItems();
     }, [fetchBorrowedItems]);
 
-    /* --- 2. LOGIKA STEPPER (TAMBAH/KURANG JUMLAH) --- */
     const incrementQty = (id: string) => {
         setDaftarAlat(prev => prev.map(item =>
             (item.id === id && item.jumlahKembali < item.jumlahPinjam)
@@ -91,7 +83,7 @@ export default function ReturnItemScreen() {
         ));
     };
 
-    /* --- 3. FUNGSI KIRIM DATA (POST) --- */
+    /* --- LOGIKA KIRIM DATA (SUDAH DIPERBAIKI) --- */
     const handleConfirmReturn = async () => {
         const selectedItems = daftarAlat.filter(i => i.jumlahKembali > 0);
 
@@ -103,23 +95,30 @@ export default function ReturnItemScreen() {
         try {
             setSubmitting(true);
 
-            // Payload sinkron dengan ReturnItemsRequest.cs di Backend
             const payload = {
                 borrowingId: Number(borrowingId),
                 detailIds: selectedItems.map(item => Number(item.id))
             };
 
-            console.log("SENDING PAYLOAD:", payload);
-
+            // 1. Kirim data ke backend untuk memproses status pengembalian
             const response = await api.post('/api/BorrowingDetail/return-items', payload);
 
             if (response.status === 200 || response.status === 204) {
-                // Berhasil -> Pindah ke halaman QR
+
+                // 2. Siapkan data item yang dipilih untuk ditampilkan di halaman QR
+                // Struktur harus sama dengan yang diekspektasi PagesQr (equipmentName & quantity)
+                const itemsForQr = selectedItems.map(item => ({
+                    equipmentName: item.nama,
+                    quantity: item.jumlahKembali
+                }));
+
+                // 3. Pindah ke halaman QR dengan membawa 'selectedItems'
                 router.push({
                     pathname: '/(tabs)/pages-qr' as any,
                     params: {
                         id: borrowingId,
-                        type: 'return'
+                        type: 'return',
+                        selectedItems: JSON.stringify(itemsForQr) // <--- INI KUNCINYA
                     }
                 });
             }
@@ -132,10 +131,8 @@ export default function ReturnItemScreen() {
         }
     };
 
-    // Validasi apakah ada barang yang sudah dipilih jumlahnya
     const isAnySelected = daftarAlat.some(item => item.jumlahKembali > 0);
 
-    /* --- TAMPILAN LOADING --- */
     if (loading) {
         return (
             <View style={styles.center}>
@@ -145,12 +142,10 @@ export default function ReturnItemScreen() {
         );
     }
 
-    /* --- UI UTAMA --- */
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
-            {/* HEADER */}
             <View style={styles.header}>
                 <SafeAreaView>
                     <View style={styles.headerContent}>
@@ -165,7 +160,6 @@ export default function ReturnItemScreen() {
                 </SafeAreaView>
             </View>
 
-            {/* LIST BARANG */}
             <FlatList
                 data={daftarAlat}
                 keyExtractor={(item) => item.id}
@@ -187,7 +181,6 @@ export default function ReturnItemScreen() {
                                 <Text style={styles.toolQty}>Batas Kembali: {item.jumlahPinjam} unit</Text>
                             </View>
 
-                            {/* STEPPER */}
                             <View style={styles.stepper}>
                                 <TouchableOpacity
                                     onPress={() => decrementQty(item.id)}
@@ -215,7 +208,6 @@ export default function ReturnItemScreen() {
                 )}
             />
 
-            {/* BUTTON KONFIRMASI */}
             <View style={styles.footer}>
                 <TouchableOpacity
                     disabled={!isAnySelected || submitting}

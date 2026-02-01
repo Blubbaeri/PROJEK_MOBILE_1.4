@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -44,19 +44,22 @@ interface BorrowingData {
     maxReturnTime: string;
     qrExpiry: string | null;
     verifiedDate: string | null;
-    semuaAlatHabis?: boolean;
-    alatHabisList?: string[];
 }
 
 export default function PagesQr() {
     const router = useRouter();
-    const { id, type } = useLocalSearchParams<{ id: string, type?: string }>();
+    // Menambahkan 'selectedItems' untuk menangkap data pilihan dari halaman Konfirmasi
+    const { id, type, selectedItems } = useLocalSearchParams<{
+        id: string,
+        type?: string,
+        selectedItems?: string
+    }>();
+
     const borrowingId = Number(id);
     const isReturn = type === 'return';
 
     const [borrowingData, setBorrowingData] = useState<BorrowingData | null>(null);
     const [isPolling, setIsPolling] = useState(false);
-    const [showCompletionAlert, setShowCompletionAlert] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -65,6 +68,38 @@ export default function PagesQr() {
     useEffect(() => {
         borrowingDataRef.current = borrowingData;
     }, [borrowingData]);
+
+    /**
+     * LOGIKA FILTERING BARANG
+     * Memastikan hanya barang yang dipilih (jumlah > 0) yang muncul di E-Ticket
+     */
+    const displayedItems = useMemo(() => {
+        if (!borrowingData || !borrowingData.items) return [];
+
+        // Jika ini mode pengembalian dan user membawa data pilihan barang
+        if (isReturn && selectedItems) {
+            try {
+                const parsedSelected = JSON.parse(selectedItems); // Berisi array barang yang diproses user
+
+                return borrowingData.items
+                    .map(item => {
+                        // Cari apakah barang ini ada di daftar yang dipilih user
+                        const selected = parsedSelected.find((s: any) => s.equipmentName === item.equipmentName);
+                        return {
+                            ...item,
+                            quantity: selected ? selected.quantity : 0 // Update jumlahnya sesuai input user
+                        };
+                    })
+                    .filter(item => item.quantity > 0); // Buang barang yang jumlah kembalinya 0
+            } catch (e) {
+                console.error("Error parsing selected items:", e);
+                return borrowingData.items;
+            }
+        }
+
+        // Jika mode pinjam biasa, tampilkan semua
+        return borrowingData.items;
+    }, [borrowingData, isReturn, selectedItems]);
 
     const stopPolling = useCallback(() => {
         if (pollingRef.current) {
@@ -95,8 +130,6 @@ export default function PagesQr() {
                     const endStatuses = ['selesai', 'dibatalkan', 'ditolak'];
 
                     if (endStatuses.includes(currentStatus)) {
-                        setShowCompletionAlert(true);
-                        setTimeout(() => setShowCompletionAlert(false), 5000);
                         stopPolling();
                     }
                 }
@@ -115,13 +148,12 @@ export default function PagesQr() {
             if (data) {
                 setBorrowingData(data);
                 const status = data.status.toLowerCase();
-                // Polling jika status masih dalam proses
                 if (status === 'booked' || (isReturn && status === 'dipinjam')) {
                     startPolling(data.id);
                 }
             }
         } catch (error) {
-            Alert.alert('Error', 'Gagal menyambung ke server IP: 192.168.100.230');
+            Alert.alert('Error', 'Gagal memuat data terbaru');
         } finally {
             setRefreshing(false);
         }
@@ -157,7 +189,6 @@ export default function PagesQr() {
                         <TouchableOpacity onPress={handleBack} style={styles.iconBtn}>
                             <Ionicons name="close" size={22} color="white" />
                         </TouchableOpacity>
-                        {/* JUDUL HEADER DINAMIS */}
                         <Text style={styles.headerTitle}>{isReturn ? 'E-Ticket Kembali' : 'E-Ticket Pinjam'}</Text>
                         <TouchableOpacity onPress={onRefresh} style={styles.iconBtn}>
                             <Ionicons name="refresh" size={20} color="white" />
@@ -172,21 +203,29 @@ export default function PagesQr() {
             >
                 <BookingStatus status={borrowingData.status} />
 
-                {isPolling && (
-                    <View style={styles.pollingBox}>
-                        <Ionicons name="sync" size={14} color="#5B4DBC" />
-                        <Text style={styles.pollingText}>
-                            {isReturn ? 'Tunjukkan QR ke petugas untuk scan pengembalian' : 'Menunggu verifikasi petugas...'}
-                        </Text>
-                    </View>
-                )}
+                <View style={styles.pollingBox}>
+                    <Ionicons name="information-circle" size={16} color="#5B4DBC" />
+                    <Text style={styles.pollingText}>
+                        {isReturn
+                            ? 'Tunjukkan QR ke petugas untuk scan pengembalian barang'
+                            : 'Tunjukkan QR ke petugas untuk verifikasi pengambilan alat'}
+                    </Text>
+                </View>
 
                 <QrCodeDisplay
                     qrValue={borrowingData.qrCode || borrowingData.id.toString()}
                     readableCode={borrowingData.qrCode || borrowingData.id.toString()}
                 />
 
-                <BookingItemList items={borrowingData.items || []} />
+                <View style={styles.detailHeader}>
+                    <Text style={styles.detailTitle}>
+                        {isReturn ? 'Detail Alat yang Dikembalikan' : 'Detail Alat yang Dipinjam'}
+                    </Text>
+                    <Text style={styles.itemCount}>({displayedItems.length} Alat)</Text>
+                </View>
+
+                {/* Menggunakan data yang sudah difilter */}
+                <BookingItemList items={displayedItems} />
             </ScrollView>
         </View>
     );
@@ -199,8 +238,11 @@ const styles = StyleSheet.create({
     headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
     iconBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
     content: { padding: 20, paddingBottom: 40 },
-    pollingBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8EAF6', padding: 10, borderRadius: 10, marginVertical: 15 },
-    pollingText: { marginLeft: 6, fontSize: 12, color: '#5B4DBC', fontWeight: '500', textAlign: 'center', flex: 1 },
+    pollingBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8EAF6', padding: 12, borderRadius: 10, marginVertical: 15 },
+    pollingText: { marginLeft: 8, fontSize: 13, color: '#5B4DBC', fontWeight: '500', textAlign: 'center', flex: 1 },
+    detailHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginTop: 10, paddingHorizontal: 5 },
+    detailTitle: { fontSize: 15, fontWeight: 'bold', color: '#333' },
+    itemCount: { fontSize: 13, color: '#666', marginLeft: 5 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: 20, fontSize: 16, color: '#666' }
 });
