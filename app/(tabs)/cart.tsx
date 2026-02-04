@@ -5,6 +5,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     Platform,
@@ -12,8 +13,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-    ActivityIndicator
+    View
 } from 'react-native';
 import CartHeader from '../../components/CartHeader';
 import CartList from '../../components/CartList';
@@ -53,7 +53,8 @@ export default function CartScreen() {
         setShowPicker(true);
     };
 
-    // PROSES CHECKOUT
+    // ✅ FIXED: PROSES CHECKOUT
+    // ✅ FIXED: PROSES CHECKOUT
     const processCheckout = async () => {
         if (cartItems.length === 0) {
             Alert.alert("Keranjang Kosong", "Silakan pilih alat terlebih dahulu.");
@@ -69,50 +70,91 @@ export default function CartScreen() {
                 return;
             }
 
-            // Susun data waktu untuk backend
-            const dateStr = date.toISOString().split('T')[0];
-            const timeStr = formatDisplayTime(date);
-            const scheduledTime = `${dateStr}T${timeStr}:00`;
+            const HARDCODED_MHS_ID = "12345678";
 
-            const nextDay = new Date(date);
-            nextDay.setDate(date.getDate() + 1);
-            const maxReturnStr = nextDay.toISOString().split('T')[0];
-            const maxReturnTime = `${maxReturnStr}T${timeStr}:00`;
+            // ✅ FORMAT LOCAL DATETIME (no timezone conversion)
+            const formatLocalDateTime = (d: Date): string => {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                const seconds = String(d.getSeconds()).padStart(2, '0');
+
+                return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            };
 
             const payload = {
-                mhsId: 1, // Sesuaikan dengan sistem ID user kamu
-                items: cartItems.map(item => ({ perId: item.perId, quantity: item.quantity || 1 })),
-                scheduledTime,
-                maxReturnTime,
-                status: "booked",
-                createdBy: "Mobile_User"
+                mhsId: HARDCODED_MHS_ID,
+                items: cartItems.map(item => ({
+                    perId: item.perId,
+                    quantity: item.quantity || 1
+                })),
+                scheduledTime: formatLocalDateTime(date)  // ✅ Local time!
             };
+
+            console.log("📤 Booking payload:", JSON.stringify(payload, null, 2));
+            console.log("🕐 Selected date:", date);
+            console.log("🕐 Formatted time:", formatLocalDateTime(date));
 
             const response = await api.post('/api/Borrowing/CreatePeminjaman', payload, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            if (response.data.id) {
-                // 1. Kosongkan keranjang belanja
-                clearCart();
+            console.log("📥 Response:", response.data);
 
-                // 2. Pindah ke halaman QR
-                // CATATAN: Folder (tabs) tidak perlu ditulis di pathname
-                router.push({
-                    pathname: '/pages-qr',
-                    params: {
-                        id: response.data.id.toString(),
-                        type: 'borrow'
-                    }
-                });
+            if (response.data.id) {
+                Alert.alert(
+                    "Berhasil! 🎉",
+                    "Booking berhasil dibuat. QR Code akan muncul.",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                clearCart();
+                                router.push({
+                                    pathname: '/pages-qr',
+                                    params: {
+                                        id: response.data.id.toString(),
+                                        type: 'borrow'
+                                    }
+                                });
+                            }
+                        }
+                    ]
+                );
+            } else {
+                Alert.alert("Error", "Booking gagal, response tidak sesuai.");
             }
         } catch (error: any) {
-            console.error("Checkout error:", error);
-            const errorMessage = error.response?.data?.message
-                || error.response?.data?.error
-                || "Gagal membuat peminjaman. Cek koneksi server.";
+            console.error("❌ Checkout error:", error);
+            console.error("❌ Error response:", error.response?.data);
 
-            Alert.alert("Gagal", errorMessage);
+            let errorMessage = "Gagal membuat peminjaman.";
+
+            if (error.response?.data) {
+                const data = error.response.data;
+
+                if (typeof data === 'string') {
+                    errorMessage = data;
+                } else if (data.message) {
+                    errorMessage = data.message;
+                } else if (data.error) {
+                    errorMessage = data.error;
+                } else if (data.title) {
+                    errorMessage = data.title;
+                }
+
+                if (data.requestedTime && data.currentTime) {
+                    errorMessage += `\n\nWaktu yang diminta: ${data.requestedTime}\nWaktu sekarang: ${data.currentTime}`;
+                }
+
+                if (data.available !== undefined && data.required !== undefined) {
+                    errorMessage += `\n\nStok tersedia: ${data.available}\nDibutuhkan: ${data.required}`;
+                }
+            }
+
+            Alert.alert("Gagal Booking", errorMessage);
         } finally {
             setIsBooking(false);
         }

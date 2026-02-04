@@ -286,7 +286,7 @@ export default function TransactionDetailScreen() {
                                     <Text style={styles.qtyText}>Jumlah: {item.quantity}</Text>
                                 </View>
                                 {item.status && (
-                                    <Text style={styles.itemStatusLine}> • {item.status}</Text>
+                                    <Text style={styles.itemStatusLine}> ï¿½ {item.status}</Text>
                                 )}
                             </View>
                         </View>

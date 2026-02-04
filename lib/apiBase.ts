@@ -6,17 +6,19 @@ export function getApiBaseUrl(): string {
     const PORT = 5234;
 
     // **EDIT IP DI SINI SAJA!**
-    //const ACTIVE_IP = '10.1.6.125'; 
+    //const ACTIVE_IP = '10.1.6.125';
     // const ACTIVE_IP = '192.168.100.3';
-    // const ACTIVE_IP = '192.168.1.73'; 
-    // const ACTIVE_IP = '192.168.100.230'; 
-    const ACTIVE_IP = '192.168.100.230'; 
-    
+    // const ACTIVE_IP = '192.168.1.73';
+    //const ACTIVE_IP = '10.1.13.5';
+    //const ACTIVE_IP = '10.1.13.175';
+
+    // const ACTIVE_IP = '172.20.10.3';
     //const ACTIVE_IP = '192.168.100.5';
     //const ACTIVE_IP = '192.168.207.1'; 
     //const ACTIVE_IP = '172.31.16.1';
     //const ACTIVE_IP = '10.209.114.95';
     // const ACTIVE_IP = '10.1.14.15';
+    const ACTIVE_IP = '192.168.1.38';
 
     // Untuk development mode (emulator)
     if (__DEV__) {
