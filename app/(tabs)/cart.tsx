@@ -5,6 +5,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     Platform,
@@ -12,8 +13,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
-    ActivityIndicator
+    View
 } from 'react-native';
 import CartHeader from '../../components/CartHeader';
 import CartList from '../../components/CartList';
@@ -30,6 +30,11 @@ export default function CartScreen() {
     const [date, setDate] = useState(new Date());
     const [showPicker, setShowPicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+
+    // --- LOGIKA VALIDASI TANGGAL (Hanya Hari Ini & Besok) ---
+    const minDate = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 1); // Set ke Besok
 
     // Format tampilan Tanggal
     const formatDisplayDate = (d: Date) => {
@@ -53,7 +58,7 @@ export default function CartScreen() {
         setShowPicker(true);
     };
 
-    // PROSES CHECKOUT
+    // ✅ PROSES CHECKOUT (Logic formatting tetap sama)
     const processCheckout = async () => {
         if (cartItems.length === 0) {
             Alert.alert("Keranjang Kosong", "Silakan pilih alat terlebih dahulu.");
@@ -69,23 +74,25 @@ export default function CartScreen() {
                 return;
             }
 
-            // Susun data waktu untuk backend
-            const dateStr = date.toISOString().split('T')[0];
-            const timeStr = formatDisplayTime(date);
-            const scheduledTime = `${dateStr}T${timeStr}:00`;
+            const HARDCODED_MHS_ID = "12345678";
 
-            const nextDay = new Date(date);
-            nextDay.setDate(date.getDate() + 1);
-            const maxReturnStr = nextDay.toISOString().split('T')[0];
-            const maxReturnTime = `${maxReturnStr}T${timeStr}:00`;
+            const formatLocalDateTime = (d: Date): string => {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                const seconds = String(d.getSeconds()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            };
 
             const payload = {
-                mhsId: 1, // Sesuaikan dengan sistem ID user kamu
-                items: cartItems.map(item => ({ perId: item.perId, quantity: item.quantity || 1 })),
-                scheduledTime,
-                maxReturnTime,
-                status: "booked",
-                createdBy: "Mobile_User"
+                mhsId: HARDCODED_MHS_ID,
+                items: cartItems.map(item => ({
+                    perId: item.perId,
+                    quantity: item.quantity || 1
+                })),
+                scheduledTime: formatLocalDateTime(date)
             };
 
             const response = await api.post('/api/Borrowing/CreatePeminjaman', payload, {
@@ -93,26 +100,29 @@ export default function CartScreen() {
             });
 
             if (response.data.id) {
-                // 1. Kosongkan keranjang belanja
-                clearCart();
-
-                // 2. Pindah ke halaman QR
-                // CATATAN: Folder (tabs) tidak perlu ditulis di pathname
-                router.push({
-                    pathname: '/pages-qr',
-                    params: {
-                        id: response.data.id.toString(),
-                        type: 'borrow'
-                    }
-                });
+                Alert.alert(
+                    "Berhasil! 🎉",
+                    "Booking berhasil dibuat. QR Code akan muncul.",
+                    [
+                        {
+                            text: "OK",
+                            onPress: () => {
+                                clearCart();
+                                router.push({
+                                    pathname: '/pages-qr',
+                                    params: {
+                                        id: response.data.id.toString(),
+                                        type: 'borrow'
+                                    }
+                                });
+                            }
+                        }
+                    ]
+                );
             }
         } catch (error: any) {
-            console.error("Checkout error:", error);
-            const errorMessage = error.response?.data?.message
-                || error.response?.data?.error
-                || "Gagal membuat peminjaman. Cek koneksi server.";
-
-            Alert.alert("Gagal", errorMessage);
+            console.error("❌ Checkout error:", error);
+            Alert.alert("Gagal Booking", "Terjadi kesalahan saat memproses booking.");
         } finally {
             setIsBooking(false);
         }
@@ -158,29 +168,35 @@ export default function CartScreen() {
                         <View style={styles.pickerWrapper}>
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerHeaderText}>Pilih {pickerMode === 'date' ? 'Tanggal' : 'Jam'}</Text>
-                                {Platform.OS === 'ios' && (
-                                    <TouchableOpacity onPress={() => setShowPicker(false)}>
-                                        <Text style={styles.doneText}>Selesai</Text>
-                                    </TouchableOpacity>
-                                )}
+                                <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                    <Text style={styles.doneText}>Selesai</Text>
+                                </TouchableOpacity>
                             </View>
                             <DateTimePicker
                                 value={date}
                                 mode={pickerMode}
                                 is24Hour={true}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                // --- UPDATE: Tampilan Kalender (Inline untuk iOS, Calendar untuk Android) ---
+                                display={
+                                    Platform.OS === 'ios'
+                                        ? (pickerMode === 'date' ? 'inline' : 'spinner')
+                                        : 'default'
+                                }
                                 onChange={onPickerChange}
                                 minuteInterval={5}
-                                minimumDate={new Date()}
+                                // --- UPDATE: Validasi Hari Ini & Besok Saja ---
+                                minimumDate={minDate}
+                                maximumDate={maxDate}
                                 textColor="black"
                                 themeVariant="light"
+                                style={Platform.OS === 'ios' && pickerMode === 'date' ? { height: 330, marginTop: 10 } : null}
                             />
                         </View>
                     )}
 
                     <View style={styles.infoBox}>
                         <Ionicons name="information-circle" size={18} color="#888" />
-                        <Text style={styles.infoText}>Peminjaman berlaku selama 24 jam dari waktu pengambilan</Text>
+                        <Text style={styles.infoText}>Hanya tersedia untuk pengambilan hari ini atau besok.</Text>
                     </View>
 
                     <TouchableOpacity
