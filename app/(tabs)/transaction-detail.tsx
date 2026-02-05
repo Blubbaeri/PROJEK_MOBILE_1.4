@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    StatusBar,
-    Alert,
     ActivityIndicator,
+    Alert,
     Platform,
-    SafeAreaView
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { TransactionStatus } from '../../components/TransactionCard';
 import { api } from '../../lib/api';
 
@@ -175,10 +175,12 @@ export default function TransactionDetailScreen() {
         }
     }, [transactionId, startPolling]);
 
-    useEffect(() => {
-        fetchData();
-        return () => stopPolling();
-    }, [fetchData, stopPolling]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+            return () => stopPolling();
+        }, [fetchData, stopPolling])
+    );
 
     const handleBack = () => {
         stopPolling();
