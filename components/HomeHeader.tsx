@@ -51,19 +51,6 @@ const HomeHeader = ({
                 {/* KANAN: Tombol Notifikasi & User Profile */}
                 <View style={styles.rightActions}>
 
-                    {/* Tombol Lonceng */}
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleNotificationPress}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.iconWrapper}>
-                            <FontAwesome name="bell" size={18} color="white" />
-                            {/* Hiasan titik merah kecil */}
-                            <View style={styles.notifDot} />
-                        </View>
-                    </TouchableOpacity>
-
                     {/* Ikon User (Klik untuk ke Profile) */}
                     <TouchableOpacity
                         style={styles.actionButton}

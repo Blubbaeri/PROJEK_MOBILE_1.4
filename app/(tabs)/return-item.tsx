@@ -25,6 +25,7 @@ interface AlatItem {
 
 export default function ReturnItemScreen() {
     const router = useRouter();
+    // borrowingId ini adalah ID transaksi yang lo dapet dari halaman Detail Transaksi
     const { borrowingId } = useLocalSearchParams<{ borrowingId: string }>();
 
     const [daftarAlat, setDaftarAlat] = useState<AlatItem[]>([]);
@@ -52,7 +53,7 @@ export default function ReturnItemScreen() {
                         id: detailId.toString(),
                         nama: equipmentName,
                         jumlahPinjam: quantity,
-                        jumlahKembali: 0,
+                        jumlahKembali: quantity,
                     };
                 });
                 setDaftarAlat(mappedData);
@@ -83,7 +84,6 @@ export default function ReturnItemScreen() {
         ));
     };
 
-    /* --- LOGIKA KIRIM DATA (SUDAH DIPERBAIKI) --- */
     const handleConfirmReturn = async () => {
         const selectedItems = daftarAlat.filter(i => i.jumlahKembali > 0);
 
@@ -100,25 +100,20 @@ export default function ReturnItemScreen() {
                 detailIds: selectedItems.map(item => Number(item.id))
             };
 
-            // 1. Kirim data ke backend untuk memproses status pengembalian
             const response = await api.post('/api/BorrowingDetail/return-items', payload);
 
             if (response.status === 200 || response.status === 204) {
-
-                // 2. Siapkan data item yang dipilih untuk ditampilkan di halaman QR
-                // Struktur harus sama dengan yang diekspektasi PagesQr (equipmentName & quantity)
                 const itemsForQr = selectedItems.map(item => ({
                     equipmentName: item.nama,
                     quantity: item.jumlahKembali
                 }));
 
-                // 3. Pindah ke halaman QR dengan membawa 'selectedItems'
                 router.push({
                     pathname: '/(tabs)/pages-qr' as any,
                     params: {
                         id: borrowingId,
                         type: 'return',
-                        selectedItems: JSON.stringify(itemsForQr) // <--- INI KUNCINYA
+                        selectedItems: JSON.stringify(itemsForQr)
                     }
                 });
             }
@@ -149,11 +144,27 @@ export default function ReturnItemScreen() {
             <View style={styles.header}>
                 <SafeAreaView>
                     <View style={styles.headerContent}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                        {/* 
+                          --- INI FIX-NYA ---
+                          Kita paksa navigasi balik ke 'transaction-detail' dan kirim 'id'-nya.
+                          Tolong pastikan path '/(tabs)/transaction-detail' ini sudah benar sesuai struktur folder lo.
+                        */}
+                        <TouchableOpacity
+                            onPress={() => router.push({
+                                pathname: '/(tabs)/transaction-detail' as any,
+                                params: { id: borrowingId }
+                            })}
+                            style={styles.headerBtnBox}
+                        >
                             <Ionicons name="arrow-back" size={24} color="white" />
                         </TouchableOpacity>
+
                         <Text style={styles.headerTitle}>Konfirmasi Kembali</Text>
-                        <TouchableOpacity onPress={fetchBorrowedItems} style={styles.iconBtn}>
+
+                        <TouchableOpacity
+                            onPress={fetchBorrowedItems}
+                            style={styles.headerBtnBox}
+                        >
                             <Ionicons name="refresh" size={22} color="white" />
                         </TouchableOpacity>
                     </View>
@@ -191,12 +202,16 @@ export default function ReturnItemScreen() {
 
                                 <Text style={styles.qtyText}>{item.jumlahKembali}</Text>
 
-                                <TouchableOpacity
-                                    onPress={() => incrementQty(item.id)}
-                                    style={styles.stepBtn}
-                                >
-                                    <Entypo name="plus" size={18} color={item.jumlahKembali === item.jumlahPinjam ? "#CCC" : "#5B4DBC"} />
-                                </TouchableOpacity>
+                                {item.jumlahKembali < item.jumlahPinjam ? (
+                                    <TouchableOpacity
+                                        onPress={() => incrementQty(item.id)}
+                                        style={styles.stepBtn}
+                                    >
+                                        <Entypo name="plus" size={18} color="#5B4DBC" />
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={{ width: 34 }} />
+                                )}
                             </View>
                         </View>
                     </View>
@@ -237,14 +252,31 @@ const styles = StyleSheet.create({
     loadingText: { marginTop: 10, color: '#666', fontSize: 14 },
     header: {
         backgroundColor: '#5B4DBC',
-        paddingBottom: 15,
-        paddingTop: Platform.OS === 'android' ? 35 : 0,
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20
+        paddingBottom: 20,
+        paddingTop: Platform.OS === 'android' ? 40 : 10,
+        borderBottomLeftRadius: 25,
+        borderBottomRightRadius: 25
     },
-    headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
-    iconBtn: { padding: 5 },
-    headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20
+    },
+    headerBtnBox: {
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center'
+    },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
     sectionSubtitle: { fontSize: 13, color: '#888', marginTop: 4 },
     card: {

@@ -42,19 +42,6 @@ const CartHeader = ({ totalItems, onClearCart }: CartHeaderProps) => {
 
                 {/* KANAN: Lonceng & User */}
                 <View style={styles.rightActions}>
-                    {/* Tombol Notifikasi */}
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleNotificationPress}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.iconWrapper}>
-                            <FontAwesome name="bell" size={18} color="white" />
-                            {totalItems > 0 && <View style={styles.notifBadge}>
-                                <Text style={styles.badgeText}>{totalItems}</Text>
-                            </View>}
-                        </View>
-                    </TouchableOpacity>
 
                     {/* Tombol User Profile */}
                     <TouchableOpacity

@@ -8,7 +8,8 @@ import {
     StatusBar,
     Alert,
     ActivityIndicator,
-    Platform
+    Platform,
+    SafeAreaView
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
@@ -186,8 +187,6 @@ export default function TransactionDetailScreen() {
 
     const handleRefresh = () => fetchData();
 
-    /* --- NAVIGATION HANDLERS --- */
-
     const handleGoToQr = () => {
         router.push({
             pathname: '/(tabs)/pages-qr' as any,
@@ -231,7 +230,6 @@ export default function TransactionDetailScreen() {
     const currentStatusConfig = getStatusConfig(transaction.status);
     const statusLower = transaction.status.toLowerCase();
 
-    // LOGIKA TOMBOL (UPDATE: 'dipinjam' dihapus dari canShowQr)
     const canShowQr = ['booked', 'diproses', 'dikembalikan'].includes(statusLower);
     const isDipinjam = statusLower === 'dipinjam';
 
@@ -241,14 +239,21 @@ export default function TransactionDetailScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
 
+            {/* --- HEADER UPDATE (DIBIKIN SAMAAN) --- */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={goToTransactionList} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color="white" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Detail Transaksi</Text>
-                <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn}>
-                    <Ionicons name="refresh" size={24} color="white" />
-                </TouchableOpacity>
+                <SafeAreaView>
+                    <View style={styles.headerContent}>
+                        <TouchableOpacity onPress={goToTransactionList} style={styles.headerBtnBox}>
+                            <Ionicons name="arrow-back" size={24} color="white" />
+                        </TouchableOpacity>
+
+                        <Text style={styles.headerTitle}>Detail Transaksi</Text>
+
+                        <TouchableOpacity onPress={handleRefresh} style={styles.headerBtnBox}>
+                            <Ionicons name="refresh" size={22} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                </SafeAreaView>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20 }}>
@@ -298,9 +303,7 @@ export default function TransactionDetailScreen() {
                 )}
             </ScrollView>
 
-            {/* FOOTER BUTTONS */}
             <View style={styles.footer}>
-                {/* QR Hanya muncul jika status BUKAN 'dipinjam' */}
                 {canShowQr && (
                     <TouchableOpacity
                         style={[styles.btnOutline, isDipinjam && { marginBottom: 12 }]}
@@ -311,7 +314,6 @@ export default function TransactionDetailScreen() {
                     </TouchableOpacity>
                 )}
 
-                {/* Tombol Lanjut Pengembalian muncul khusus status 'Dipinjam' */}
                 {isDipinjam && (
                     <TouchableOpacity style={styles.btnPrimary} onPress={handleReturnPress}>
                         <FontAwesome5 name="undo-alt" size={18} color="white" style={{ marginRight: 10 }} />
@@ -326,20 +328,36 @@ export default function TransactionDetailScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F5F5F7' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    // --- STYLES HEADER (DIBIKIN IDENTIK) ---
     header: {
-        paddingTop: Platform.OS === 'android' ? 50 : 60,
-        paddingBottom: 20,
-        paddingHorizontal: 20,
         backgroundColor: '#5B4DBC',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20
+        paddingBottom: 20,
+        paddingTop: Platform.OS === 'android' ? 40 : 10,
+        borderBottomLeftRadius: 25,
+        borderBottomRightRadius: 25
     },
-    headerTitle: { fontSize: 18, fontWeight: 'bold', color: 'white' },
-    backBtn: { padding: 5 },
-    refreshBtn: { padding: 5 },
+    headerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        width: '100%'
+    },
+    headerBtnBox: {
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        textAlign: 'center'
+    },
+    // --- END HEADER STYLES ---
     card: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 25, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     label: { color: '#888', fontSize: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },

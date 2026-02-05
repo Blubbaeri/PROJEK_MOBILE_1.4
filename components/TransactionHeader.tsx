@@ -66,18 +66,6 @@ const TransactionHeader = ({
 
                 {/* KANAN: Lonceng & User */}
                 <View style={styles.rightActions}>
-                    {/* Tombol Notifikasi */}
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleNotificationPress}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.iconWrapper}>
-                            <FontAwesome name="bell" size={18} color="white" />
-                            {/* Titik Merah Notifikasi */}
-                            <View style={styles.notifDot} />
-                        </View>
-                    </TouchableOpacity>
 
                     {/* Ikon User */}
                     <TouchableOpacity

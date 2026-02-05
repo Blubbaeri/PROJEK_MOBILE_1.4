@@ -31,6 +31,11 @@ export default function CartScreen() {
     const [showPicker, setShowPicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
 
+    // --- LOGIKA VALIDASI TANGGAL (Hanya Hari Ini & Besok) ---
+    const minDate = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() + 1); // Set ke Besok
+
     // Format tampilan Tanggal
     const formatDisplayDate = (d: Date) => {
         return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -53,8 +58,7 @@ export default function CartScreen() {
         setShowPicker(true);
     };
 
-    // ✅ FIXED: PROSES CHECKOUT
-    // ✅ FIXED: PROSES CHECKOUT
+    // ✅ PROSES CHECKOUT (Logic formatting tetap sama)
     const processCheckout = async () => {
         if (cartItems.length === 0) {
             Alert.alert("Keranjang Kosong", "Silakan pilih alat terlebih dahulu.");
@@ -72,7 +76,6 @@ export default function CartScreen() {
 
             const HARDCODED_MHS_ID = "12345678";
 
-            // ✅ FORMAT LOCAL DATETIME (no timezone conversion)
             const formatLocalDateTime = (d: Date): string => {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -80,6 +83,8 @@ export default function CartScreen() {
                 const hours = String(d.getHours()).padStart(2, '0');
                 const minutes = String(d.getMinutes()).padStart(2, '0');
                 const seconds = String(d.getSeconds()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+            };
 
                 return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
             };
@@ -90,7 +95,7 @@ export default function CartScreen() {
                     perId: item.perId,
                     quantity: item.quantity || 1
                 })),
-                scheduledTime: formatLocalDateTime(date)  // ✅ Local time!
+                scheduledTime: formatLocalDateTime(date)
             };
 
             console.log("📤 Booking payload:", JSON.stringify(payload, null, 2));
@@ -123,38 +128,10 @@ export default function CartScreen() {
                         }
                     ]
                 );
-            } else {
-                Alert.alert("Error", "Booking gagal, response tidak sesuai.");
             }
         } catch (error: any) {
             console.error("❌ Checkout error:", error);
-            console.error("❌ Error response:", error.response?.data);
-
-            let errorMessage = "Gagal membuat peminjaman.";
-
-            if (error.response?.data) {
-                const data = error.response.data;
-
-                if (typeof data === 'string') {
-                    errorMessage = data;
-                } else if (data.message) {
-                    errorMessage = data.message;
-                } else if (data.error) {
-                    errorMessage = data.error;
-                } else if (data.title) {
-                    errorMessage = data.title;
-                }
-
-                if (data.requestedTime && data.currentTime) {
-                    errorMessage += `\n\nWaktu yang diminta: ${data.requestedTime}\nWaktu sekarang: ${data.currentTime}`;
-                }
-
-                if (data.available !== undefined && data.required !== undefined) {
-                    errorMessage += `\n\nStok tersedia: ${data.available}\nDibutuhkan: ${data.required}`;
-                }
-            }
-
-            Alert.alert("Gagal Booking", errorMessage);
+            Alert.alert("Gagal Booking", "Terjadi kesalahan saat memproses booking.");
         } finally {
             setIsBooking(false);
         }
@@ -200,29 +177,35 @@ export default function CartScreen() {
                         <View style={styles.pickerWrapper}>
                             <View style={styles.pickerHeader}>
                                 <Text style={styles.pickerHeaderText}>Pilih {pickerMode === 'date' ? 'Tanggal' : 'Jam'}</Text>
-                                {Platform.OS === 'ios' && (
-                                    <TouchableOpacity onPress={() => setShowPicker(false)}>
-                                        <Text style={styles.doneText}>Selesai</Text>
-                                    </TouchableOpacity>
-                                )}
+                                <TouchableOpacity onPress={() => setShowPicker(false)}>
+                                    <Text style={styles.doneText}>Selesai</Text>
+                                </TouchableOpacity>
                             </View>
                             <DateTimePicker
                                 value={date}
                                 mode={pickerMode}
                                 is24Hour={true}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                // --- UPDATE: Tampilan Kalender (Inline untuk iOS, Calendar untuk Android) ---
+                                display={
+                                    Platform.OS === 'ios'
+                                        ? (pickerMode === 'date' ? 'inline' : 'spinner')
+                                        : 'default'
+                                }
                                 onChange={onPickerChange}
                                 minuteInterval={5}
-                                minimumDate={new Date()}
+                                // --- UPDATE: Validasi Hari Ini & Besok Saja ---
+                                minimumDate={minDate}
+                                maximumDate={maxDate}
                                 textColor="black"
                                 themeVariant="light"
+                                style={Platform.OS === 'ios' && pickerMode === 'date' ? { height: 330, marginTop: 10 } : null}
                             />
                         </View>
                     )}
 
                     <View style={styles.infoBox}>
                         <Ionicons name="information-circle" size={18} color="#888" />
-                        <Text style={styles.infoText}>Peminjaman berlaku selama 24 jam dari waktu pengambilan</Text>
+                        <Text style={styles.infoText}>Hanya tersedia untuk pengambilan hari ini atau besok.</Text>
                     </View>
 
                     <TouchableOpacity
