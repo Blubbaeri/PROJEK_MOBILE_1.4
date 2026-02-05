@@ -18,7 +18,11 @@ export function getApiBaseUrl(): string {
     //const ACTIVE_IP = '172.31.16.1';
     //const ACTIVE_IP = '10.209.114.95';
     // const ACTIVE_IP = '10.1.14.15';
-    const ACTIVE_IP = '192.168.1.38';
+    // const ACTIVE_IP = '192.168.1.38';
+    // const ACTIVE_IP = '192.168.100.6';
+    const ACTIVE_IP = '192.168.1.10';
+
+
 
     // Untuk development mode (emulator)
     if (__DEV__) {
