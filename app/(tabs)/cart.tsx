@@ -86,8 +86,7 @@ export default function CartScreen() {
                 return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
             };
 
-                return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-            };
+
 
             const payload = {
                 mhsId: HARDCODED_MHS_ID,
