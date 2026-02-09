@@ -1,26 +1,26 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    StatusBar,
-    SafeAreaView,
-    Platform,
-    Alert,
-    RefreshControl,
-    ActivityIndicator
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Platform,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 import { api } from '../../lib/api';
 
 // COMPONENTS
+import BookingItemList from '../../components/BookingItemList';
 import BookingStatus from '../../components/BookingStatus';
 import QrCodeDisplay from '../../components/QrCodeDisplay';
-import BookingItemList from '../../components/BookingItemList';
 
 /*  TYPES */
 interface BorrowingData {
@@ -80,17 +80,8 @@ export default function PagesQr() {
         if (isReturn && selectedItems) {
             try {
                 const parsedSelected = JSON.parse(selectedItems); // Berisi array barang yang diproses user
-
-                return borrowingData.items
-                    .map(item => {
-                        // Cari apakah barang ini ada di daftar yang dipilih user
-                        const selected = parsedSelected.find((s: any) => s.equipmentName === item.equipmentName);
-                        return {
-                            ...item,
-                            quantity: selected ? selected.quantity : 0 // Update jumlahnya sesuai input user
-                        };
-                    })
-                    .filter(item => item.quantity > 0); // Buang barang yang jumlah kembalinya 0
+                // DIRECT USE: Gunakan data yang dibawa user agar persis tampilannya
+                return parsedSelected;
             } catch (e) {
                 console.error("Error parsing selected items:", e);
                 return borrowingData.items;

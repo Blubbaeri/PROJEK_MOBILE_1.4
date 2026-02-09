@@ -4,19 +4,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { getApiBaseUrl } from '../../lib/apiBase';
@@ -217,8 +217,8 @@ export default function LoginScreen() {
                 </LinearGradient>
               </Animated.View>
 
-                <Text style={styles.title}>Lab Equipment</Text>
-                <Text style={styles.subtitle}>Management System  I</Text>
+              <Text style={styles.title}>Lab Equipment</Text>
+              <Text style={styles.subtitle}>Management System  I</Text>
 
               {/* Decorative Line */}
               <View style={styles.decorativeLine}>

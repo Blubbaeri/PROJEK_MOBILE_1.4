@@ -1,66 +1,85 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { Entypo, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
+    ActivityIndicator,
+    Alert,
     FlatList,
+    Platform,
     SafeAreaView,
     StatusBar,
-    Platform,
-    ActivityIndicator,
-    Alert
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, FontAwesome5, Entypo } from '@expo/vector-icons';
 import { api } from '../../lib/api';
 
-/* --- DATA TYPE INTERFACE --- */
-interface AlatItem {
-    id: string;
-    nama: string;
-    jumlahPinjam: number;
-    jumlahKembali: number;
+/* --- TYPES --- */
+// Item Asli dari Backend (Satuan)
+interface RawItem {
+    id: number;
+    equipmentName: string;
+    status?: string; // Tambahkan status untuk filtering
+    // properti lain gak terlalu penting buat logic ini
+}
+
+// Item Group buat Tampilan (UI)
+interface GroupedItem {
+    name: string;
+    totalQty: number;      // Total pinjam (misal: 2)
+    returnQty: number;     // Yang mau dibalikin (misal: 1)
+    ids: number[];         // List ID asli: [101, 102]
 }
 
 export default function ReturnItemScreen() {
     const router = useRouter();
-    // borrowingId ini adalah ID transaksi yang lo dapet dari halaman Detail Transaksi
     const { borrowingId } = useLocalSearchParams<{ borrowingId: string }>();
 
-    const [daftarAlat, setDaftarAlat] = useState<AlatItem[]>([]);
+    const [groupedList, setGroupedList] = useState<GroupedItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
     const fetchBorrowedItems = useCallback(async () => {
-        if (!borrowingId) {
-            Alert.alert("Error", "ID Transaksi tidak ditemukan.");
-            router.back();
-            return;
-        }
+        if (!borrowingId) return;
 
         try {
             setLoading(true);
-            const response = await api.get(`/api/Borrowing/DetailPeminjaman/${borrowingId}`);
+            // 1. Fetch data SATUAN (biar dapet ID aslinya)
+            const response = await api.get(`/api/BorrowingDetail/with-equipment/${borrowingId}?excludeReturned=true`);
+            const rawData: RawItem[] = response.data.data || [];
 
-            if (response.data && response.data.items) {
-                const mappedData = response.data.items.map((item: any, index: number) => {
-                    const detailId = item.id || item.Id || item.borrowingDetailId || index;
-                    const equipmentName = item.equipmentName || item.EquipmentName || "Alat";
-                    const quantity = item.quantity || item.Quantity || 0;
+            // 2. Logic GROUPING (Satuan -> Group)
+            const groups: Record<string, GroupedItem> = {};
 
-                    return {
-                        id: detailId.toString(),
-                        nama: equipmentName,
-                        jumlahPinjam: quantity,
-                        jumlahKembali: quantity,
+            rawData.forEach(item => {
+                // FILTER: Hanya ambil yang statusnya "Dipinjam"
+                // Kita perketat validasinya untuk cegah status "Dikembalikan" / "Pengajuan_Kembalian" muncul
+                const currentStatus = item.status ? item.status.toLowerCase() : '';
+                if (currentStatus !== 'dipinjam') {
+                    return;
+                }
+
+                const name = item.equipmentName || "Alat";
+
+                if (!groups[name]) {
+                    groups[name] = {
+                        name: name,
+                        totalQty: 0,
+                        returnQty: 0,  // Default 0 atau mau langsung max (totalQty) terserah
+                        ids: []
                     };
-                });
-                setDaftarAlat(mappedData);
-            }
+                }
+                groups[name].totalQty += 1;
+                groups[name].returnQty += 1; // Default kita set langsung balikin semua (bisa diubah)
+                groups[name].ids.push(item.id);
+            });
+
+            setGroupedList(Object.values(groups));
+
         } catch (error: any) {
             console.error("Fetch Error:", error);
-            Alert.alert("Error", "Gagal menyambung ke server Backend.");
+            Alert.alert("Error", "Gagal data backend.");
         } finally {
             setLoading(false);
         }
@@ -70,46 +89,60 @@ export default function ReturnItemScreen() {
         fetchBorrowedItems();
     }, [fetchBorrowedItems]);
 
-    const incrementQty = (id: string) => {
-        setDaftarAlat(prev => prev.map(item =>
-            (item.id === id && item.jumlahKembali < item.jumlahPinjam)
-                ? { ...item, jumlahKembali: item.jumlahKembali + 1 } : item
+    // Handle (+)
+    const incrementQty = (name: string) => {
+        setGroupedList(prev => prev.map(item =>
+            (item.name === name && item.returnQty < item.totalQty)
+                ? { ...item, returnQty: item.returnQty + 1 } : item
         ));
     };
 
-    const decrementQty = (id: string) => {
-        setDaftarAlat(prev => prev.map(item =>
-            (item.id === id && item.jumlahKembali > 0)
-                ? { ...item, jumlahKembali: item.jumlahKembali - 1 } : item
+    // Handle (-)
+    const decrementQty = (name: string) => {
+        setGroupedList(prev => prev.map(item =>
+            (item.name === name && item.returnQty > 0)
+                ? { ...item, returnQty: item.returnQty - 1 } : item
         ));
     };
 
     const handleConfirmReturn = async () => {
-        const selectedItems = daftarAlat.filter(i => i.jumlahKembali > 0);
+        // Ambil item yang quantity baliknya > 0
+        const itemsToReturn = groupedList.filter(i => i.returnQty > 0);
 
-        if (selectedItems.length === 0) {
-            Alert.alert("Peringatan", "Pilih minimal satu barang untuk dikembalikan.");
+        if (itemsToReturn.length === 0) {
+            Alert.alert("Peringatan", "Pilih minimal satu barang.");
             return;
         }
 
         try {
             setSubmitting(true);
 
+            // 3. Logic UNWRAP (Ambil ID secara acak/berurutan sejumlah returnQty)
+            let allDetailIds: number[] = [];
+
+            itemsToReturn.forEach(group => {
+                // Ambil ID sebanyak returnQty (misal balikin 1, ambil index 0. Balikin 2, ambil index 0,1)
+                const idsToSend = group.ids.slice(0, group.returnQty);
+                allDetailIds = [...allDetailIds, ...idsToSend];
+            });
+
             const payload = {
                 borrowingId: Number(borrowingId),
-                detailIds: selectedItems.map(item => Number(item.id))
+                detailIds: allDetailIds, // Kirim list ID asli
+                returnedBy: "user" // Opsional, backend udah handle via token biasanya
             };
 
             const response = await api.post('/api/BorrowingDetail/return-items', payload);
 
             if (response.status === 200 || response.status === 204) {
-                const itemsForQr = selectedItems.map(item => ({
-                    equipmentName: item.nama,
-                    quantity: item.jumlahKembali
+                // Siapin data buat QR (Grouped bentuknya)
+                const itemsForQr = itemsToReturn.map(item => ({
+                    equipmentName: item.name,
+                    quantity: item.returnQty
                 }));
 
                 router.push({
-                    pathname: '/(tabs)/pages-qr' as any,
+                    pathname: '/(tabs)/pages-qr',
                     params: {
                         id: borrowingId,
                         type: 'return',
@@ -118,21 +151,23 @@ export default function ReturnItemScreen() {
                 });
             }
         } catch (error: any) {
-            console.error("Submit Error:", error);
-            const msg = error.response?.data?.message || "Gagal memproses pengembalian.";
+            const msg = error.response?.data?.message || "Gagal proses.";
             Alert.alert("Gagal", msg);
         } finally {
             setSubmitting(false);
         }
     };
 
-    const isAnySelected = daftarAlat.some(item => item.jumlahKembali > 0);
+    const isAnySelected = groupedList.some(item => item.returnQty > 0);
+
+    // ... (SISA RENDER UI SAMA KAYA SEBELUMNYA, CUMA GANTI VARIABLE STATE AJA)
+    // Render item pake: item.name, item.totalQty, item.returnQty
 
     if (loading) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#5B4DBC" />
-                <Text style={styles.loadingText}>Sinkronisasi data backend...</Text>
+                <Text style={styles.loadingText}>Memuat data...</Text>
             </View>
         );
     }
@@ -140,15 +175,10 @@ export default function ReturnItemScreen() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-
+            {/* Header sama kayak sebelumnya */}
             <View style={styles.header}>
                 <SafeAreaView>
                     <View style={styles.headerContent}>
-                        {/* 
-                          --- INI FIX-NYA ---
-                          Kita paksa navigasi balik ke 'transaction-detail' dan kirim 'id'-nya.
-                          Tolong pastikan path '/(tabs)/transaction-detail' ini sudah benar sesuai struktur folder lo.
-                        */}
                         <TouchableOpacity
                             onPress={() => router.push({
                                 pathname: '/(tabs)/transaction-detail' as any,
@@ -158,13 +188,9 @@ export default function ReturnItemScreen() {
                         >
                             <Ionicons name="arrow-back" size={24} color="white" />
                         </TouchableOpacity>
-
                         <Text style={styles.headerTitle}>Konfirmasi Kembali</Text>
-
-                        <TouchableOpacity
-                            onPress={fetchBorrowedItems}
-                            style={styles.headerBtnBox}
-                        >
+                        {/* Tombol Refresh */}
+                        <TouchableOpacity onPress={fetchBorrowedItems} style={styles.headerBtnBox}>
                             <Ionicons name="refresh" size={22} color="white" />
                         </TouchableOpacity>
                     </View>
@@ -172,13 +198,13 @@ export default function ReturnItemScreen() {
             </View>
 
             <FlatList
-                data={daftarAlat}
-                keyExtractor={(item) => item.id}
+                data={groupedList}
+                keyExtractor={(item) => item.name}
                 contentContainerStyle={{ padding: 20 }}
                 ListHeaderComponent={() => (
                     <View style={{ marginBottom: 15 }}>
                         <Text style={styles.sectionTitle}>Barang yang Dipinjam</Text>
-                        <Text style={styles.sectionSubtitle}>Tentukan jumlah barang yang akan dikembalikan</Text>
+                        <Text style={styles.sectionSubtitle}>Atur jumlah barang yang dikembalikan</Text>
                     </View>
                 )}
                 renderItem={({ item }) => (
@@ -188,37 +214,28 @@ export default function ReturnItemScreen() {
                                 <FontAwesome5 name="tools" size={18} color="#5B4DBC" />
                             </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.toolName}>{item.nama}</Text>
-                                <Text style={styles.toolQty}>Batas Kembali: {item.jumlahPinjam} unit</Text>
+                                <Text style={styles.toolName}>{item.name}</Text>
+                                <Text style={styles.toolQty}>Dipinjam: {item.totalQty} unit</Text>
                             </View>
 
                             <View style={styles.stepper}>
                                 <TouchableOpacity
-                                    onPress={() => decrementQty(item.id)}
+                                    onPress={() => decrementQty(item.name)}
                                     style={styles.stepBtn}
                                 >
-                                    <Entypo name="minus" size={18} color={item.jumlahKembali === 0 ? "#CCC" : "#5B4DBC"} />
+                                    <Entypo name="minus" size={18} color={item.returnQty === 0 ? "#CCC" : "#5B4DBC"} />
                                 </TouchableOpacity>
 
-                                <Text style={styles.qtyText}>{item.jumlahKembali}</Text>
+                                <Text style={styles.qtyText}>{item.returnQty}</Text>
 
-                                {item.jumlahKembali < item.jumlahPinjam ? (
-                                    <TouchableOpacity
-                                        onPress={() => incrementQty(item.id)}
-                                        style={styles.stepBtn}
-                                    >
-                                        <Entypo name="plus" size={18} color="#5B4DBC" />
-                                    </TouchableOpacity>
-                                ) : (
-                                    <View style={{ width: 34 }} />
-                                )}
+                                <TouchableOpacity
+                                    onPress={() => incrementQty(item.name)}
+                                    style={styles.stepBtn}
+                                >
+                                    <Entypo name="plus" size={18} color={item.returnQty >= item.totalQty ? "#CCC" : "#5B4DBC"} />
+                                </TouchableOpacity>
                             </View>
                         </View>
-                    </View>
-                )}
-                ListEmptyComponent={() => (
-                    <View style={styles.center}>
-                        <Text style={{ color: '#999' }}>Tidak ada barang untuk dikembalikan.</Text>
                     </View>
                 )}
             />
@@ -232,12 +249,10 @@ export default function ReturnItemScreen() {
                     ]}
                     onPress={handleConfirmReturn}
                 >
-                    {submitting ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
+                    {submitting ? <ActivityIndicator color="white" /> : (
                         <>
                             <Ionicons name="checkmark-circle-outline" size={22} color="white" style={{ marginRight: 8 }} />
-                            <Text style={styles.mainButtonText}>Konfirmasi & Tampilkan QR</Text>
+                            <Text style={styles.mainButtonText}>Konfirmasi & QR</Text>
                         </>
                     )}
                 </TouchableOpacity>
@@ -246,6 +261,7 @@ export default function ReturnItemScreen() {
     );
 }
 
+// ... styles sama kayak sebelumnya
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8F9FE' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
