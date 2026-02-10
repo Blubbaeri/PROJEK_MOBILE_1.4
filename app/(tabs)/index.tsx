@@ -55,25 +55,25 @@ export default function HomeScreen() {
         try {
             let res;
             console.log('🔄 Fetching data...');
-            
+
             if (categoryName === null) {
                 console.log('📡 Calling: /api/Equipment/GetAllEquipmentWithStock');
                 res = await api.get('/api/Equipment/GetAllEquipmentWithStock', {
                     params: { PageSize: 100, PageNumber: 1, _t: Date.now() }
                 });
-                console.log('✅ Response:', res.data);
+                // Remove verbose log: console.log('✅ Response:', res.data);
             } else {
                 const cat = categories.find(c => c.name === categoryName);
                 if (!cat) return;
                 console.log(`📡 Calling: /api/Equipment/GetByCategoryIdWithStock/${cat.id}`);
-                res = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`, { 
-                    params: { _t: Date.now() } 
+                res = await api.get(`/api/Equipment/GetByCategoryIdWithStock/${cat.id}`, {
+                    params: { _t: Date.now() }
                 });
-                console.log('✅ Response:', res.data);
+                // Remove verbose log: console.log('✅ Response:', res.data);
             }
 
             let rawData: any[] = [];
-            
+
             if (Array.isArray(res.data)) {
                 rawData = res.data;
             } else if (res.data && Array.isArray(res.data.data)) {
@@ -81,7 +81,7 @@ export default function HomeScreen() {
             } else {
                 rawData = res.data || [];
             }
-            
+
             console.log('📦 Raw data extracted:', rawData.length, 'items');
             // ✅ PANGGIL mapEquipmentData
             setEquipment(mapEquipmentData(rawData));
@@ -102,12 +102,12 @@ export default function HomeScreen() {
             const res = await api.get('/api/Equipment/SearchWithStock', {
                 params: { term: searchRef.current.trim(), _t: Date.now() }
             });
-            
-            console.log('🔍 Search response:', res.data);
-            
+
+            // Remove verbose log: console.log('🔍 Search response:', res.data);
+
             const rawSearchData = Array.isArray(res.data) ? res.data : [];
             console.log('🔍 Search results:', rawSearchData.length, 'items');
-            
+
             // ✅ PAKAI mapEquipmentData juga untuk search
             setEquipment(mapEquipmentData(rawSearchData));
         } catch (err: any) {

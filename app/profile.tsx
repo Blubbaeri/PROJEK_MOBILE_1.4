@@ -1,23 +1,43 @@
-import React from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Dimensions,
-    StatusBar
-} from 'react-native';
-import { FontAwesome, Feather } from '@expo/vector-icons';
+import { Feather, FontAwesome } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+    Alert,
+    Dimensions,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const ProfileScreen = () => {
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { signOut } = useAuth();
+
+    const handleLogout = () => {
+        Alert.alert(
+            "Konfirmasi Logout",
+            "Apakah Anda yakin ingin keluar?",
+            [
+                { text: "Batal", style: "cancel" },
+                {
+                    text: "Logout",
+                    style: "destructive",
+                    onPress: async () => {
+                        await signOut();
+                    }
+                }
+            ]
+        );
+    };
 
     // Data Statis (Karena fitur edit dihapus)
     const userData = {
@@ -62,14 +82,28 @@ const ProfileScreen = () => {
 
                 {/* --- TOMBOL AKSI --- */}
                 <View style={styles.btnWrapper}>
-                    {/* HANYA TOMBOL KEMBALI */}
-                    <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8}>
+                    {/* TOMBOL KEMBALI */}
+                    <TouchableOpacity onPress={() => router.back()} activeOpacity={0.8} style={{ marginBottom: 12 }}>
                         <LinearGradient
                             colors={['#5B4DBC', '#8B80F8']}
                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                             style={styles.gradientButton}
                         >
                             <Text style={styles.buttonText}>Kembali</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+
+                    {/* TOMBOL LOGOUT */}
+                    <TouchableOpacity onPress={handleLogout} activeOpacity={0.8}>
+                        <LinearGradient
+                            colors={['#FF5252', '#FF867A']}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            style={styles.gradientButton}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Feather name="log-out" size={18} color="white" style={{ marginRight: 8 }} />
+                                <Text style={styles.buttonText}>Logout</Text>
+                            </View>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>

@@ -22,7 +22,8 @@ export function getApiBaseUrl(): string {
     // const ACTIVE_IP = '192.168.100.6';
     // const ACTIVE_IP = '192.168.1.10';
     // const ACTIVE_IP = '172.20.10.2';
-    const ACTIVE_IP = '172.30.241.95';
+    // const ACTIVE_IP = '172.30.241.95';
+    const ACTIVE_IP = '192.168.100.4';
 
 
 
@@ -38,6 +39,10 @@ export function getApiBaseUrl(): string {
 
         if (expoHost) {
             const hostOnly = String(expoHost).split(":")[0];
+
+            // NOTE: Di mode development (Expo Go), expoHost akan otomatis mengambil IP laptop kamu.
+            // Jika ingin memaksa pakai ACTIVE_IP di atas, komentari blok `if (__DEV__)` ini.
+
             if (Platform.OS === "android" && (hostOnly === "localhost" || hostOnly === "127.0.0.1")) {
                 return `http://10.0.2.2:${PORT}`;
             }

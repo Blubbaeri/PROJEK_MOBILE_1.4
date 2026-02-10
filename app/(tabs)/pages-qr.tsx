@@ -192,7 +192,7 @@ export default function PagesQr() {
                 contentContainerStyle={styles.content}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#5B4DBC']} />}
             >
-                <BookingStatus status={borrowingData.status} />
+                <BookingStatus status={isReturn && borrowingData.status.toLowerCase() === 'dipinjam' ? 'Proses Kembali' : borrowingData.status} />
 
                 <View style={styles.pollingBox}>
                     <Ionicons name="information-circle" size={16} color="#5B4DBC" />

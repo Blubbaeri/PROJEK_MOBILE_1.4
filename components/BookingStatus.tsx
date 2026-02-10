@@ -1,6 +1,6 @@
 // components/bookingStatus.tsx
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function BookingStatus({ status }: { status: string }) {
 
@@ -44,6 +44,13 @@ export default function BookingStatus({ status }: { status: string }) {
                     displayText: 'DIKEMBALIKAN',
                     icon: '↩️'
                 };
+            case 'proses kembali':
+                return {
+                    bgColor: '#EDE7F6',
+                    textColor: '#673AB7',
+                    displayText: 'PROSES KEMBALI',
+                    icon: '🔄'
+                };
             case 'selesai':
                 return {
                     bgColor: '#F5F5F5',
@@ -78,8 +85,9 @@ export default function BookingStatus({ status }: { status: string }) {
                 {s === 'booked' ? 'Menunggu scan QR di lab' :
                     s === 'diproses' ? 'Sedang diproses admin' :
                         s === 'dipinjam' ? 'Alat sudah bisa diambil' :
-                            s === 'dikembalikan' ? 'Menunggu konfirmasi selesai' :
-                                'Transaksi selesai'}
+                            s === 'proses kembali' ? 'Tunjukkan QR Code ke petugas' :
+                                s === 'dikembalikan' ? 'Menunggu konfirmasi selesai' :
+                                    'Transaksi selesai'}
             </Text>
         </View>
     );

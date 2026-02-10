@@ -54,7 +54,7 @@ export default function ReturnItemScreen() {
 
             rawData.forEach(item => {
                 // FILTER: Hanya ambil yang statusnya "Dipinjam"
-                // Kita perketat validasinya untuk cegah status "Dikembalikan" / "Pengajuan_Kembalian" muncul
+                // Kita perketat validasinya untuk cegah status "Dikembalikan" muncul
                 const currentStatus = item.status ? item.status.toLowerCase() : '';
                 if (currentStatus !== 'dipinjam') {
                     return;
@@ -129,13 +129,13 @@ export default function ReturnItemScreen() {
             const payload = {
                 borrowingId: Number(borrowingId),
                 detailIds: allDetailIds, // Kirim list ID asli
-                returnedBy: "user" // Opsional, backend udah handle via token biasanya
+                returnedBy: "user" //backend udah handle via token biasanya
             };
 
             const response = await api.post('/api/BorrowingDetail/return-items', payload);
 
             if (response.status === 200 || response.status === 204) {
-                // Siapin data buat QR (Grouped bentuknya)
+                // Siapin data buat QR 
                 const itemsForQr = itemsToReturn.map(item => ({
                     equipmentName: item.name,
                     quantity: item.returnQty
@@ -160,7 +160,6 @@ export default function ReturnItemScreen() {
 
     const isAnySelected = groupedList.some(item => item.returnQty > 0);
 
-    // ... (SISA RENDER UI SAMA KAYA SEBELUMNYA, CUMA GANTI VARIABLE STATE AJA)
     // Render item pake: item.name, item.totalQty, item.returnQty
 
     if (loading) {
@@ -175,7 +174,7 @@ export default function ReturnItemScreen() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#5B4DBC" />
-            {/* Header sama kayak sebelumnya */}
+            {/* Header */}
             <View style={styles.header}>
                 <SafeAreaView>
                     <View style={styles.headerContent}>
@@ -252,7 +251,7 @@ export default function ReturnItemScreen() {
                     {submitting ? <ActivityIndicator color="white" /> : (
                         <>
                             <Ionicons name="checkmark-circle-outline" size={22} color="white" style={{ marginRight: 8 }} />
-                            <Text style={styles.mainButtonText}>Konfirmasi & QR</Text>
+                            <Text style={styles.mainButtonText}>Konfirmasi QR</Text>
                         </>
                     )}
                 </TouchableOpacity>
@@ -261,7 +260,7 @@ export default function ReturnItemScreen() {
     );
 }
 
-// ... styles sama kayak sebelumnya
+// styles 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8F9FE' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
